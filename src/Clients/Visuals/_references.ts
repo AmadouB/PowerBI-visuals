@@ -114,6 +114,8 @@
 /// <reference path="visuals/samples/helloIVisual.ts"/>
 /// <reference path="visuals/samples/asterPlot.ts"/>
 
+/// <reference path="visuals/kpiStatusWithHistory.ts"/>
+
 /// <reference path="capabilities/comboChart.capabilities.ts"/>
 /// <reference path="cartesian/comboChart.ts"/>
 

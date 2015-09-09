@@ -293,4 +293,10 @@ module powerbi.visuals.plugins {
         capabilities: samples.AsterPlot.capabilities,
         create: () => new samples.AsterPlot()
     };
+
+    export var kpiStatusWithHistory: IVisualPlugin = {
+        name: 'kpiStatusWithHistory',
+        capabilities: KPIStatusWithHistory.capabilities,
+        create: () => new KPIStatusWithHistory()
+    };
 }
