@@ -181,7 +181,7 @@ module powerbi.visuals {
 
         private svg: D3.Selection;
         private dataView: DataView;
-        private selectiionManager: SelectionManager;
+        private selectiionManager: utility.SelectionManager;
         public metaDataColumn: DataViewMetadataColumn;
 
         private sMainGroupElement: D3.Selection;
@@ -307,7 +307,7 @@ module powerbi.visuals {
 
             this.kpiUnit = "%";
 
-            this.selectiionManager = new SelectionManager({ hostServices: options.host });
+            this.selectiionManager = new utility.SelectionManager({ hostServices: options.host });
         }
 
         public update(options: VisualUpdateOptions) {
@@ -448,6 +448,7 @@ module powerbi.visuals {
             return {
                 showTitle: true,
                 labelSettings: dataLabelUtils.getDefaultLabelSettings(/* showLabel: */true, Card.DefaultStyle.value.color, 0),
+                wordWrap: false
             };
         }
 

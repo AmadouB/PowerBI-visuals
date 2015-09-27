@@ -96,4 +96,52 @@ module jsCommon {
             return JSON.stringify(x) === JSON.stringify(y);
         }
     }
+
+    /**
+     * Values are in terms of 'pt'
+     * Convert to pixels using PixelConverter.fromPoint
+     */
+    export module TextSizeDefaults {
+        /**
+         * Stored in terms of 'pt'
+         * Convert to pixels using PixelConverter.fromPoint
+         */
+        export const TextSizeMin: number = 8;
+
+        /**
+         * Stored in terms of 'pt'
+         * Convert to pixels using PixelConverter.fromPoint
+         */
+        export const TextSizeMax: number = 40;
+
+        const TextSizeRange: number = TextSizeMax - TextSizeMin;
+
+        /**
+         * Returns the percentage of this value relative to the TextSizeMax
+         * @param textSize - should be given in terms of 'pt'
+         */
+        export function getScale(textSize: number) {
+            return (textSize - TextSizeMin) / TextSizeRange;
+        }
+
+    }
+
+    export module PixelConverter {
+        const PxPtRatio: number = 4 / 3;
+        const PixelString: string = 'px';
+
+        /**
+         * Appends 'px' to the end of number value for use as pixel string in styles
+         */
+        export function toString(px: number): string {
+            return px + PixelString;
+        }
+
+        /**
+         * Converts point value (pt) to pixels
+         */
+        export function fromPoint(pt: number): string {
+            return toString(PxPtRatio * pt);
+        }
+    }
 } 

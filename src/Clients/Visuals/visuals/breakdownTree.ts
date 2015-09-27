@@ -34,31 +34,6 @@ it is not possible to provide full cross-filter functionality. Currently, when c
 for the Power BI team to include as a functionality in order to fulle present hierarchycal drill paths. 
 */
 
-/* CSS Code:
-.Box {
-    font - family: Calibri;
-}
-.Box Active {
-    font - family: Calibri;
-}
-.BarLabel{
-    font - family: Calibri;
-    font - size:12px;
-}
-.PercBar {
-    font - family: Calibri;
-}
-.PercBarBar {
-    font - family: Calibri;
-}     
- .ConnectorActive {
-    font - family: Calibri;
-}
- .Connector {
-    fill: #EEEEEE;
-}
-*/
-
 /// <reference path="../_references.ts"/>
 
 module powerbi.visuals {
@@ -167,7 +142,7 @@ module powerbi.visuals {
         polyYellow: D3.Selection;
     }
 
-    export class BreakdownTree implements IVisual, IInteractiveVisual {
+    export class BreakdownTree implements IVisual {
         public static capabilities: VisualCapabilities = {
             dataRoles: [
                 {
@@ -292,17 +267,17 @@ module powerbi.visuals {
         private otherGraphicsContext: D3.Selection;
         private currentViewport: IViewport;
         private colors: IDataColorPalette;
-        private data: FunnelData;
+        private data: BreakdownTreeData;
         private hostServices: IVisualHostServices;
         private margin: IMargin;
         private options: VisualInitOptions;
-        private interactivityService: IInteractivityService;
         private defaultDataPointColor: string;
-        private labelPositionObjects: string[] = [labelPosition.outsideEnd, labelPosition.insideCenter];
         // TODO: Remove onDataChanged & onResizing once all visuals have implemented update.
         private dataViews: DataView[];
 
         private svgLevels: BreakdownTreeLevel[];
+
+        private selectionManager: utility.SelectionManager;
 
         public static getFormattedValue(dataView: DataView, theValue: number, thisRef: BreakdownTree): string {
             thisRef.getMetaDataColumn(dataView);
@@ -335,12 +310,15 @@ module powerbi.visuals {
                 }
             }
         }
+
         public getDefaultFormatSettings(): CardFormatSetting {
             return {
                 showTitle: true,
                 labelSettings: dataLabelUtils.getDefaultLabelSettings(true, Card.DefaultStyle.value.color, 0),
+                wordWrap: false
             };
         }
+
         public getFormatString(column: DataViewMetadataColumn): string {
             debug.assertAnyValue(column, 'column');
             return valueFormatter.getFormatString(column, AnimatedText.formatStringProp);
@@ -356,7 +334,6 @@ module powerbi.visuals {
 
             var hasHighlights = values && values[0] && !!values[0].highlights;
             var highlightsOverflow = false;
-            //var categorical: DataViewCategorical = dataView.categorical;
             var dataLabelsSettings: VisualDataLabelsSettings = dataLabelUtils.getDefaultFunnelLabelSettings();
 
             if (dataView && dataView.metadata && dataView.metadata.objects) {
@@ -460,8 +437,6 @@ module powerbi.visuals {
                         return this.enumerateDataPoints();
                     }
                     break;
-                case 'labels':
-                    return dataLabelUtils.enumerateDataLabels(this.data.dataLabelsSettings, true, true, true, this.labelPositionObjects);
             }
         }
 
@@ -513,6 +488,8 @@ module powerbi.visuals {
             element.append(this.svgContainer);
 
             this.cardFormatSetting = this.getDefaultFormatSettings();
+            
+            this.selectionManager = new utility.SelectionManager({ hostServices: options.host });
 
             var svg = this.svg = d3.select("#DivContainer").append("svg")
                 .classed(BreakdownTree.VisualClassName, true)
@@ -532,7 +509,6 @@ module powerbi.visuals {
             var style = options.style;
             this.colors = style.colorPalette.dataColors;
             this.hostServices = options.host;
-            this.interactivityService = VisualInteractivityFactory.buildInteractivityService(options);
             this.percentGraphicsContext = svg.append('g').classed(BreakdownTree.Selectors.percentBar.root.class, true);
             this.funnelGraphicsContext = svg.append('g');
             this.otherGraphicsContext = svg.append('g');
@@ -608,7 +584,7 @@ module powerbi.visuals {
                 }
             }
             
-            // TODO: New data, but not drillup or drilldown => crossfilter 
+            // TODO: New data, but no drillup or drilldown => crossfilter
                       
             this.svgLevels.push(newLevel);
 
@@ -690,10 +666,7 @@ module powerbi.visuals {
                 }
                 else {
                     // New data, no drill up or drill down
-                    // We have new data - reset last level
-                    //while (this.svgLevels.length > 0) {
-                    //    this.removeLastLevelSVG();
-                    //}
+                    // We have new data - reset current visual drilldowns. (Alternativelly: reset allt levels)
                     this.removeLastLevelSVG();
                 }
                 barItemClicked = false;
@@ -712,10 +685,6 @@ module powerbi.visuals {
                     // TODO: Check if we have a new level or not.
                     this.AddDataLevel(newData);
                     this.data = newData;
-
-                    if (this.interactivityService) {
-                        this.interactivityService.applySelectionStateToData(newData.slices);
-                    }
                 }
 
                 var warnings = getInvalidValueWarnings(
@@ -782,9 +751,7 @@ module powerbi.visuals {
                     yAdj = prevLevelSelectedIndex * itemHeightDistance + itemHeight * 0.5 + prevLev.data.slices[0].yAdj;
                     yAdj -= (curLev.data.slices.length * itemHeightDistance - (itemHeightDistance - itemHeight)) / 2;
                     var lastPixelYPos = curLev.data.slices.length * itemHeightDistance + yAdj;
-                    //if (lastPixelYPos > sH) {
-                    //    yAdj -= (lastPixelYPos - sH);
-                    //}
+
                     if (lastPixelYPos > curSize.h) {
                         yAdj -= (lastPixelYPos - curSize.h);
                     }
@@ -797,7 +764,6 @@ module powerbi.visuals {
                 if (minValue > 0) {
                     minValue = 0;
                 }
-                //var sumMeasureCalc = d3.sum(curLev.data.slices, function(d) {return d.value-minValue;});
                 var sumMeasureCalc = curLev.data.slices[0].value - minValue;
                 for (var i = 0; i < curLev.data.slices.length; i++) {
                     var curVal = curLev.data.slices[i];
@@ -827,11 +793,7 @@ module powerbi.visuals {
 
             var duration = suppressAnimations ? 0 : AnimatorCommon.MinervaAnimationDuration;
 
-            var data = this.data;
-            var slices = data.slices;
-
             var shapes: D3.UpdateSelection;
-            var dataLabels: D3.UpdateSelection;
 
             itemWidthDistance = this.currentViewport.width * 0.70 / this.svgLevels.length;
             if (itemWidthDistance < itemWidthDistanceMin)
@@ -851,56 +813,37 @@ module powerbi.visuals {
 
             var oLevel = this.svgLevels[this.svgLevels.length - 1];
             this.svgLevels.length <= 1 ? oPrevLevel = null : oPrevLevel = this.svgLevels[this.svgLevels.length - 2];
-            //var layout = BreakdownTree.getLayout(oLevel.data, this.currentViewport);
             shapes = BreakdownTree.drawDefaultShapes(oLevel.data, oLevel.data.slices, oLevel.mainSelection, duration);
             BreakdownTree.drawOtherShapes(oLevel, oPrevLevel, oLevel.data.slices, oLevel.otherSelection, duration);
             var shapesClick = BreakdownTree.drawClickShapes(oLevel.data, oLevel.data.slices, oLevel.clickSelection, duration);
 
-            if (this.interactivityService) {
-                var behaviorOptions: BreakdownTreeBehaviorOptions = {
-                    datapoints: slices,
-                    bars: shapesClick,
-                    labels: dataLabels,
-                    clearCatcher: this.clearCatcher,
-                    hasHighlights: data.hasHighlights,
-                };
+            // Hook up to drillup event
+            var btnDrillUp = $("#" + this.svgContainer.id).closest("div.visualContainer").find("button[ng-click='drillUp()']");
+            btnDrillUp.click(function () { drillUpClicked = true; });
 
-                // Här sker all drilldown etc
-                this.interactivityService.apply(this, behaviorOptions);   
-                
-                // Hook up to drillup event
-                var btnDrillUp = $("#" + this.svgContainer.id).closest("div.visualContainer").find("button[ng-click='drillUp()']");
-                btnDrillUp.click(function () { drillUpClicked = true; });
+            // Hook up to toggle drill down event
+            var btnToggleDrillDown = $("#" + this.svgContainer.id).closest("div.visualContainer").find("button[ng-click='toggleDrillMode()']");
+            btnToggleDrillDown.click(function (a) { DrillModeEnabled = ($(a.target).attr("class").indexOf("drillModeEnabled") > -1); });
 
-                // Hook up to toggle drill down event
-                var btnToggleDrillDown = $("#" + this.svgContainer.id).closest("div.visualContainer").find("button[ng-click='toggleDrillMode()']");
-                btnToggleDrillDown.click(function (a) { DrillModeEnabled = ($(a.target).attr("class").indexOf("drillModeEnabled") > -1); });
-
-                // Custom click
-                shapesClick.each(function (d, i) {
-                    var currentClickFunc = d3.select(this).on("click");
-                    d3.select(this).on("click", function (a, b) {
-                        if (DrillModeEnabled) {
-                            a.isSelectedForDrill = true;
-                            barItemClicked = true;
-                            currentClickFunc(a, b); // If we want crossfiltering to work move this outside the if
-                        }
-                    });
+            // Custom click
+            var sm = this.selectionManager;
+            shapesClick.each(function (d, i) {
+                d3.select(this).on("click", function (a, b) {
+                    if (DrillModeEnabled) {
+                        a.isSelectedForDrill = true;
+                        barItemClicked = true;
+                        sm.select(a.identity);
+                        // If we want crossfiltering to work move this outside the IF
+                    }
                 });
-            }
+            });
 
             TooltipManager.addTooltip(shapesClick, (tooltipEvent: TooltipEvent) => tooltipEvent.data.tooltipInfo);
 
             SVGUtil.flushAllD3TransitionsIfNeeded(this.options);
         }
 
-        public accept(visitor: InteractivityVisitor, options: any): void {
-            visitor.visitFunnel(options);
-        }
-
         public onClearSelection(): void {
-            if (this.interactivityService)
-                this.interactivityService.clearSelection();
         }
 
         public static drawDefaultAxis(graphicsContext: D3.Selection, axisOptions: BreakdownTreeAxisOptions, isHidingPercentBars: boolean): void {
@@ -968,6 +911,7 @@ module powerbi.visuals {
                 .attr("y", function (d) { return d.y + itemHeightDistance * 0.7; })
                 .attr("class", "BarLabel")
                 .attr("clip-path", function (d) { return "url(#textclip" + d.currentLevelIndex + ")"; })
+                .attr("font-size", "12px")
                 .text(function (d) { return d.formattedValue + " " + d.label; })
                 .attr("clip-path", "url(#textclip" + slices[0].currentLevelIndex + ")")
             ;
@@ -1007,6 +951,7 @@ module powerbi.visuals {
                 levelCur.polyGray
                     .attr("class", "Connector")
                     .attr("points", startX + "," + startY + ",   " + endX + "," + endY1 + ",  " + endX + "," + endY2)
+                    .attr("fill", "#eeeeee")
                 ;                
                 
                 // Yellow arrow
@@ -1151,13 +1096,4 @@ module powerbi.visuals {
             return this.dataMap;
         }
     }
-}
-
-module powerbi.visuals.plugins {
-    export var _BreakdownTree: IVisualPlugin = {
-        name: '_BreakdownTree',
-        class: '_BreakdownTree',
-        capabilities: BreakdownTree.capabilities,
-        create: () => new BreakdownTree()
-    };
 }
