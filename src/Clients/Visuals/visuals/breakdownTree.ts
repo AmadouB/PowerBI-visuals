@@ -31,7 +31,7 @@ Created by Fredrik Hedenström, 2015-09-08
 /*
 Note from Fredrik Hedenström: this visualization visualizes the whole drilldown path. Since Power BI only provides data for the current drilldown level
 it is not possible to provide full cross-filter functionality. Currently, when cross-filtering only the last level is filtered. Maybe this is something to consider 
-for the Power BI team to include as a functionality in order to fulle present hierarchycal drill paths. 
+for the Power BI team to include as a functionality in order to fully present hierarchical drill paths. 
 */
 
 /// <reference path="../_references.ts"/>
@@ -124,11 +124,6 @@ module powerbi.visuals {
             rightTick: ClassAndSelector;
             text: ClassAndSelector;
         };
-    }
-
-    export interface BreakdownTreeSmallViewPortProperties {
-        hideFunnelCategoryLabelsOnSmallViewPort: boolean;
-        minHeightFunnelCategoryLabelsVisible: number;
     }
 
     export interface BreakdownTreeLevel {
@@ -256,15 +251,11 @@ module powerbi.visuals {
                 text: BreakdownTree.CreateSelector('value'),
             },
         };
-        private static VisualClassName = 'funnelChart';// 'funnelChart';
+        private static VisualClassName = 'breakDownChart';
 
         private svgContainer: HTMLDivElement;
         private svg: D3.Selection;
-        private funnelGraphicsContext: D3.Selection;
-        private percentGraphicsContext: D3.Selection;
         private clearCatcher: D3.Selection;
-        private axisGraphicsContext: D3.Selection;
-        private otherGraphicsContext: D3.Selection;
         private currentViewport: IViewport;
         private colors: IDataColorPalette;
         private data: BreakdownTreeData;
@@ -326,7 +317,7 @@ module powerbi.visuals {
 
         public static converter(dataView: DataView, colors: IDataColorPalette, thisRef: BreakdownTree, defaultDataPointColor?: string): BreakdownTreeData {
             var slices: BreakdownTreeSlice[] = [];
-            var formatStringProp = funnelChartProps.general.formatString;
+            var formatStringProp = breakdownTreeChartProps.general.formatString;
             var valueMetaData = dataView.metadata ? dataView.metadata.columns.filter(d => d.isMeasure) : [];
             var categories = dataView.categorical.categories || [];
 
@@ -491,7 +482,7 @@ module powerbi.visuals {
             
             this.selectionManager = new utility.SelectionManager({ hostServices: options.host });
 
-            var svg = this.svg = d3.select("#DivContainer").append("svg")
+            this.svg = d3.select("#DivContainer").append("svg")
                 .classed(BreakdownTree.VisualClassName, true)
                 ;
 
@@ -509,10 +500,6 @@ module powerbi.visuals {
             var style = options.style;
             this.colors = style.colorPalette.dataColors;
             this.hostServices = options.host;
-            this.percentGraphicsContext = svg.append('g').classed(BreakdownTree.Selectors.percentBar.root.class, true);
-            this.funnelGraphicsContext = svg.append('g');
-            this.otherGraphicsContext = svg.append('g');
-            this.axisGraphicsContext = svg.append('g');
 
             this.updateViewportProperties();
         }
@@ -579,12 +566,12 @@ module powerbi.visuals {
                     }
                 }
                 if (isSameData) {
-                    //alert("same!");
+                    // Same data, do nothing just return
                     return;
                 }
             }
             
-            // TODO: New data, but no drillup or drilldown => crossfilter
+            // TODO: Drill up from a "full level drill down"
                       
             this.svgLevels.push(newLevel);
 
@@ -675,14 +662,14 @@ module powerbi.visuals {
                 var dataView = dataViews[0];
 
                 if (dataView.metadata && dataView.metadata.objects) {
-                    var defaultColor = DataViewObjects.getFillColor(dataView.metadata.objects, funnelChartProps.dataPoint.defaultColor);
+                    var defaultColor = DataViewObjects.getFillColor(dataView.metadata.objects, breakdownTreeChartProps.dataPoint.defaultColor);
                     if (defaultColor)
                         this.defaultDataPointColor = defaultColor;
                 }
 
                 if (dataView.categorical) {
                     var newData = BreakdownTree.converter(dataView, this.colors, this, this.defaultDataPointColor);
-                    // TODO: Check if we have a new level or not.
+                    // TODO: Check if we really have a new level or not.
                     this.AddDataLevel(newData);
                     this.data = newData;
                 }
@@ -1024,11 +1011,6 @@ module powerbi.visuals {
 
             return s;
         }
-
-        public static getFunnelSliceValue(slice: BreakdownTreeSlice) {
-            return slice.highlight ? slice.highlightValue : slice.value;
-        }
-
     }
 
     /* Behaviours */
@@ -1042,7 +1024,7 @@ module powerbi.visuals {
 
     export class BreakdownTreeWebBehavior {
         public select(hasSelection: boolean, selection: D3.Selection, hasHighlights: boolean) {
-            selection.style("fill-opacity", (d: FunnelSlice) => ColumnUtil.getFillOpacity(d.selected, d.highlight, !d.highlight && hasSelection, !d.selected && hasHighlights));
+            selection.style("fill-opacity", (d: BreakdownTreeSlice) => ColumnUtil.getFillOpacity(d.selected, d.highlight, !d.highlight && hasSelection, !d.selected && hasHighlights));
         }
     }
 
@@ -1096,4 +1078,14 @@ module powerbi.visuals {
             return this.dataMap;
         }
     }
+
+    export var breakdownTreeChartProps = {
+        general: {
+            formatString: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'formatString' },
+        },
+        dataPoint: {
+            defaultColor: <DataViewObjectPropertyIdentifier>{ objectName: 'dataPoint', propertyName: 'defaultColor' },
+            fill: <DataViewObjectPropertyIdentifier>{ objectName: 'dataPoint', propertyName: 'fill' },
+        },
+    };
 }

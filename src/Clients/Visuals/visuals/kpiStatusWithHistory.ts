@@ -42,78 +42,6 @@ module powerbi.visuals {
         tooltipInfo: TooltipDataItem[];
     }
 
-    var StatusColor = { RED: "#DC0002", YELLOW: "#F6C000", GREEN: "#96C401" };
-    var StatusBandingType = { IncreasingIsBetter: "IIB", DecreasingIsBetter: "DIB", CloserIsBetter: "CIB" };
-    var StatusBandingCompareType = { Absolute: "ABS", Relative: "REL" };
-    var StatusChartType = { LineChart: "LINE", BarChart: "BAR" };
-
-    function GetKPIActualDiffFromGoal(dActual, dGoal, sUnit, oBandingCompareType) {
-        var retValue = "";
-        if (dActual > dGoal) {
-            retValue += "+";
-        }
-        if (oBandingCompareType === StatusBandingCompareType.Relative) {
-            retValue += Math.round(1000 * (dActual - dGoal) / dGoal) / 10 + " %";
-        }
-        else if (oBandingCompareType === StatusBandingCompareType.Absolute) {
-            retValue += Math.round(1000 * (dActual - dGoal)) / 10 + " %";
-        }
-        return retValue;
-    }
-
-    function GetBandingActual(dGoal, dPercentBandingCalculated, dPercentBanding, oBandingCompareType) {
-        var retValue = 0;
-        if (oBandingCompareType === StatusBandingCompareType.Relative) {
-            retValue = dGoal * dPercentBandingCalculated;
-        }
-        else if (oBandingCompareType === StatusBandingCompareType.Absolute) {
-            retValue = dGoal - dPercentBanding;
-        }
-        return retValue;
-    }
-
-    function GetStatusColor(dActual, dGoal, oBandingType, oBandingCompareType, dPercentBanding) {
-        var ReturnStatusColor = StatusColor.YELLOW;
-        var dActualBandingGY, dActualBandingRY;
-        switch (oBandingType) {
-            case StatusBandingType.IncreasingIsBetter:
-                dActualBandingGY = dGoal;
-                dActualBandingRY = GetBandingActual(dGoal, (1 - dPercentBanding), dPercentBanding, oBandingCompareType);
-                if (dActual >= dActualBandingGY) {
-                    ReturnStatusColor = StatusColor.GREEN;
-                }
-                else if (dActual <= dActualBandingRY) {
-                    ReturnStatusColor = StatusColor.RED;
-                }
-                break;
-            case StatusBandingType.DecreasingIsBetter:
-                dActualBandingGY = dGoal;
-                dActualBandingRY = GetBandingActual(dGoal, (1 + dPercentBanding), -dPercentBanding, oBandingCompareType);
-                if (dActual <= dActualBandingGY) {
-                    ReturnStatusColor = StatusColor.GREEN;
-                }
-                else if (dActual > dActualBandingRY) {
-                    ReturnStatusColor = StatusColor.RED;
-                }
-                break;
-            case StatusBandingType.CloserIsBetter:
-                var dActualBandingGY_Pos = GetBandingActual(dGoal, (1 + (dPercentBanding * 0.5)), -(dPercentBanding * 0.5), oBandingCompareType);
-                var dActualBandingGY_Neg = GetBandingActual(dGoal, (1 - (dPercentBanding * 0.5)), (dPercentBanding * 0.5), oBandingCompareType);
-                var dActualBandingRY_Pos = GetBandingActual(dGoal, (1 + (dPercentBanding * 1.5)), -(dPercentBanding * 1.0), oBandingCompareType);
-                var dActualBandingRY_Neg = GetBandingActual(dGoal, (1 - (dPercentBanding * 1.5)), (dPercentBanding * 1.0), oBandingCompareType);
-                if (dActual <= dActualBandingGY_Pos && dActual >= dActualBandingGY_Neg) {
-                    ReturnStatusColor = StatusColor.GREEN;
-                }
-                else if (dActual > dActualBandingRY_Pos || dActual < dActualBandingRY_Neg) {
-                    ReturnStatusColor = StatusColor.RED;
-                }
-                break;
-            default:
-                break;
-        }
-        return ReturnStatusColor;
-    }
-
     export class KPIStatusWithHistory implements IVisual {
         public static capabilities: VisualCapabilities = {
             dataRoles: [
@@ -192,7 +120,6 @@ module powerbi.visuals {
         private sKPIActualDiffText: D3.Selection;
         private sLinePath: D3.Selection;
         private kpiText: string;
-        private kpiUnit: string;
         private kpiBandingCompareType: string;
         private kpiBandingStatusType: string;
         private kpiGoal: number;
@@ -305,8 +232,6 @@ module powerbi.visuals {
             this.sKPIActualDiffText = this.sMainGroupElement.append("text");
             this.sLinePath = this.sMainGroupElement.append("path");
 
-            this.kpiUnit = "%";
-
             this.selectiionManager = new utility.SelectionManager({ hostServices: options.host });
         }
 
@@ -377,7 +302,7 @@ module powerbi.visuals {
 
             var diffText = "";
             if (this.kpiTargetExists) {
-                diffText = "(" + GetKPIActualDiffFromGoal(this.kpiActual, this.kpiGoal, this.kpiUnit, this.kpiBandingCompareType) + ")";
+                diffText = "(" + GetKPIActualDiffFromGoal(this.kpiActual, this.kpiGoal, this.kpiBandingCompareType) + ")";
             }
             this.sKPIActualDiffText
                 .attr("x", sW * 0.95)
@@ -447,7 +372,7 @@ module powerbi.visuals {
         private getDefaultFormatSettings(): CardFormatSetting {
             return {
                 showTitle: true,
-                labelSettings: dataLabelUtils.getDefaultLabelSettings(/* showLabel: */true, Card.DefaultStyle.value.color, 0),
+                labelSettings: dataLabelUtils.getDefaultLabelSettings(true, Card.DefaultStyle.value.color, 0),
                 wordWrap: false
             };
         }
@@ -545,5 +470,77 @@ module powerbi.visuals {
         public destroy(): void {
             this.svg = null;
         }
+    }
+
+    var StatusColor = { RED: "#DC0002", YELLOW: "#F6C000", GREEN: "#96C401" };
+    var StatusBandingType = { IncreasingIsBetter: "IIB", DecreasingIsBetter: "DIB", CloserIsBetter: "CIB" };
+    var StatusBandingCompareType = { Absolute: "ABS", Relative: "REL" };
+    var StatusChartType = { LineChart: "LINE", BarChart: "BAR" };
+
+    function GetKPIActualDiffFromGoal(dActual, dGoal, oBandingCompareType) {
+        var retValue = "";
+        if (dActual > dGoal) {
+            retValue += "+";
+        }
+        if (oBandingCompareType === StatusBandingCompareType.Relative) {
+            retValue += Math.round(1000 * (dActual - dGoal) / dGoal) / 10 + " %";
+        }
+        else if (oBandingCompareType === StatusBandingCompareType.Absolute) {
+            retValue += Math.round(1000 * (dActual - dGoal)) / 10 + " %";
+        }
+        return retValue;
+    }
+
+    function GetBandingActual(dGoal, dPercentBandingCalculated, dPercentBanding, oBandingCompareType) {
+        var retValue = 0;
+        if (oBandingCompareType === StatusBandingCompareType.Relative) {
+            retValue = dGoal * dPercentBandingCalculated;
+        }
+        else if (oBandingCompareType === StatusBandingCompareType.Absolute) {
+            retValue = dGoal - dPercentBanding;
+        }
+        return retValue;
+    }
+
+    function GetStatusColor(dActual, dGoal, oBandingType, oBandingCompareType, dPercentBanding) {
+        var ReturnStatusColor = StatusColor.YELLOW;
+        var dActualBandingGY, dActualBandingRY;
+        switch (oBandingType) {
+            case StatusBandingType.IncreasingIsBetter:
+                dActualBandingGY = dGoal;
+                dActualBandingRY = GetBandingActual(dGoal, (1 - dPercentBanding), dPercentBanding, oBandingCompareType);
+                if (dActual >= dActualBandingGY) {
+                    ReturnStatusColor = StatusColor.GREEN;
+                }
+                else if (dActual <= dActualBandingRY) {
+                    ReturnStatusColor = StatusColor.RED;
+                }
+                break;
+            case StatusBandingType.DecreasingIsBetter:
+                dActualBandingGY = dGoal;
+                dActualBandingRY = GetBandingActual(dGoal, (1 + dPercentBanding), -dPercentBanding, oBandingCompareType);
+                if (dActual <= dActualBandingGY) {
+                    ReturnStatusColor = StatusColor.GREEN;
+                }
+                else if (dActual > dActualBandingRY) {
+                    ReturnStatusColor = StatusColor.RED;
+                }
+                break;
+            case StatusBandingType.CloserIsBetter:
+                var dActualBandingGY_Pos = GetBandingActual(dGoal, (1 + (dPercentBanding * 0.5)), -(dPercentBanding * 0.5), oBandingCompareType);
+                var dActualBandingGY_Neg = GetBandingActual(dGoal, (1 - (dPercentBanding * 0.5)), (dPercentBanding * 0.5), oBandingCompareType);
+                var dActualBandingRY_Pos = GetBandingActual(dGoal, (1 + (dPercentBanding * 1.5)), -(dPercentBanding * 1.0), oBandingCompareType);
+                var dActualBandingRY_Neg = GetBandingActual(dGoal, (1 - (dPercentBanding * 1.5)), (dPercentBanding * 1.0), oBandingCompareType);
+                if (dActual <= dActualBandingGY_Pos && dActual >= dActualBandingGY_Neg) {
+                    ReturnStatusColor = StatusColor.GREEN;
+                }
+                else if (dActual > dActualBandingRY_Pos || dActual < dActualBandingRY_Neg) {
+                    ReturnStatusColor = StatusColor.RED;
+                }
+                break;
+            default:
+                break;
+        }
+        return ReturnStatusColor;
     }
 }
