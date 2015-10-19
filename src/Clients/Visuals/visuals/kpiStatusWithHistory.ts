@@ -28,7 +28,7 @@
 Created by Fredrik Hedenström, 2015-09-08
 */
 
-/// <reference path="../_references.ts"/>
+//-/// <reference path="../_references.ts"/>
 
 module powerbi.visuals {
     export interface KPIStatusWithHistoryDataPoint {
@@ -60,7 +60,7 @@ module powerbi.visuals {
                 }],
             dataViewMappings: [{
                 conditions: [
-                    { 'Values': { max: 1 }, 'Targets': { max: 1 } },
+                    { 'Values': { max: 1 }, 'Categories': { max: 1 }, 'Targets': { max: 1 } },
                 ],
                 categorical: {
                     categories: {
@@ -176,12 +176,22 @@ module powerbi.visuals {
             }
 
             for (var i = 0, len = values[0].values.length; i < len; i++) {
-                var actualValue = values[0].values[i];
-                historyActualData.push(actualValue);
                 if (thisRef.kpiTargetExists) {
-                    var targetValue = values[1].values[i];
+                    if (DataRoleHelper.hasRole(values[0].source, 'Values')/* && metaCols[0].roles && metaCols[0].roles['Values']*/) {
+                        var actualValue = values[0].values[i];
+                        var targetValue = values[1].values[i];
+                    }
+                    else {
+                        var actualValue = values[1].values[i];
+                        var targetValue = values[0].values[i];
+                    }
                     historyGoalData.push(targetValue);
                 }
+                else {
+                    var actualValue = values[0].values[i];
+                }
+
+                historyActualData.push(actualValue);
             }
 
             var nW = sW * 0.9;
@@ -236,14 +246,9 @@ module powerbi.visuals {
         }
 
         public update(options: VisualUpdateOptions) {
-            if (!options.dataViews && !options.dataViews[0]) return;
+            if (!options.dataViews || !options.dataViews[0]) return;
             var dataView = this.dataView = options.dataViews[0];
             var viewport = options.viewport;
-
-            this.kpiHistoryExists = true;
-            if (dataView.categorical.categories === undefined) {
-                this.kpiHistoryExists = false;
-            }
 
             // We must have at least one measure
             if (dataView.categorical === undefined || dataView.categorical.values === undefined || dataView.categorical.values.length < 1) {
@@ -251,6 +256,11 @@ module powerbi.visuals {
                 return;
             }
             this.svg.attr("visibility", "visible");
+
+            this.kpiHistoryExists = true;
+            if (dataView.categorical.categories === undefined) {
+                this.kpiHistoryExists = false;
+            }
 
             var dataPoints: KPIStatusWithHistoryDataPoint[] = KPIStatusWithHistory.converter(dataView, viewport, this);
 
@@ -328,6 +338,7 @@ module powerbi.visuals {
 
                 var selectionCircle = this.sMainGroupElement2.selectAll("circle").data(dataPoints, function (d) { return d.dataId; });
 
+                //Handling new data
                 selectionCircle.enter()
                     .append("circle")
                     .classed(".circle112", true)
@@ -339,6 +350,10 @@ module powerbi.visuals {
                     .attr("stroke-width", sH * 0.015);
 
                 selectionCircle.exit().remove();
+
+                //Handling change to Target only, with same data
+                selectionCircle.attr("fill", statusColor);
+
                 this.sLinePath.attr("visibility", "visible");
                 this.sMainGroupElement2.selectAll("rect").remove();
                 if (!this.kpiHistoryExists) {
@@ -372,7 +387,7 @@ module powerbi.visuals {
         private getDefaultFormatSettings(): CardFormatSetting {
             return {
                 showTitle: true,
-                labelSettings: dataLabelUtils.getDefaultLabelSettings(true, Card.DefaultStyle.value.color, 0),
+                labelSettings: dataLabelUtils.getDefaultLabelSettings(true, Card.DefaultStyle.value.color),
                 wordWrap: false
             };
         }
