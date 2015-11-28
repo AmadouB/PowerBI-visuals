@@ -183,5 +183,6 @@
 
 /// <reference path="visuals/kpiStatusWithHistory.ts"/>
 /// <reference path="visuals/breakdownTree.ts"/>
+/// <reference path="visuals/scrollingtextvisual.ts"/>
 
 /// <reference path="plugins.ts"/>

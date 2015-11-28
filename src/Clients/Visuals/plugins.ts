@@ -346,4 +346,10 @@ module powerbi.visuals.plugins {
         create: () => new BreakdownTree()
     };
 
+    export var _ScrollingTextVisual: IVisualPlugin = {
+        name: '_ScrollingTextVisual',
+        capabilities: ScrollingTextVisual.capabilities,
+        create: () => new ScrollingTextVisual()
+    };
+
 }
