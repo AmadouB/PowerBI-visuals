@@ -160,7 +160,7 @@ module powerbi.visuals {
             };
             if (dataView) {
                 var categorical = dataView.categorical;
-                if (categorical) {
+                if (categorical && categorical.values) {
                     var categories = categorical.categories;
                     var series = categorical.values;
 
@@ -168,8 +168,8 @@ module powerbi.visuals {
 
                     thisRef.measure0Index = DataRoleHelper.getMeasureIndexOfRole(group, "Measure Absolute");
                     thisRef.measure1Index = DataRoleHelper.getMeasureIndexOfRole(group, "Measure Deviation");
-                    thisRef.measure0Index = 0;  // Uncomment when debugging...
-                    thisRef.measure1Index = 1;  // Uncomment when debugging...
+                    //                    thisRef.measure0Index = 0;  // Uncomment when debugging...
+                    //                    thisRef.measure1Index = 1;  // Uncomment when debugging...
                     if (thisRef.measure0Index < 0 && thisRef.measure1Index < 0) {
                         return;
                     }
@@ -192,7 +192,6 @@ module powerbi.visuals {
                                 }
                                 viewModel.values[i].values.push(value);
                             }
-                            console.log(categories[0].values[i]);
                         }
                     }
                 }
@@ -220,16 +219,16 @@ module powerbi.visuals {
             pBgColor: { objectName: 'general', propertyName: 'pBgColor' },
             pInterval: { objectName: 'general', propertyName: 'pInterval' },
         };
-        private pShouldAutoSizeFont_get(dataView: DataView): boolean { return dataView.metadata && DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pShouldAutoSizeFont, false); }
-        private pShouldIndicatePosNeg_get(dataView: DataView): boolean { return dataView.metadata && DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pShouldIndicatePosNeg, true); }
-        private pShouldUsePosNegColoring_get(dataView: DataView): boolean { return dataView.metadata && DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pShouldUsePosNegColoring, true); }
-        private pShouldUseTextColoring_get(dataView: DataView): boolean { return dataView.metadata && DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pShouldUseTextColoring, false); }
-        private pFontSize_get(dataView: DataView): number { return dataView.metadata && DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pFontSize, 20); }
-        private pSpeed_get(dataView: DataView): number { return dataView.metadata && DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pSpeed, 1.2); }
-        private pCustomText_get(dataView: DataView): string { return dataView.metadata && DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pCustomText, ""); }
-        private pForeColor_get(dataView: DataView): Fill { return dataView.metadata && DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pForeColor, { solid: { color: '#ffffff' } }); }
-        private pBgColor_get(dataView: DataView): Fill { return dataView.metadata && DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pBgColor, { solid: { color: '#000000' } }); }
-        private pInterval_get(dataView: DataView): number { return dataView.metadata && DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pInterval, 50); }
+        private pShouldAutoSizeFont_get(dataView: DataView): boolean { return dataView == null ? false : DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pShouldAutoSizeFont, false); }
+        private pShouldIndicatePosNeg_get(dataView: DataView): boolean { return dataView == null ? true : DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pShouldIndicatePosNeg, true); }
+        private pShouldUsePosNegColoring_get(dataView: DataView): boolean { return dataView == null ? true : DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pShouldUsePosNegColoring, true); }
+        private pShouldUseTextColoring_get(dataView: DataView): boolean { return dataView == null ? false : DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pShouldUseTextColoring, false); }
+        private pFontSize_get(dataView: DataView): number { return dataView == null ? 20 : DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pFontSize, 20); }
+        private pSpeed_get(dataView: DataView): number { return dataView == null ? 1.2 : DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pSpeed, 1.2); }
+        private pCustomText_get(dataView: DataView): string { return dataView == null ? "" : DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pCustomText, ""); }
+        private pForeColor_get(dataView: DataView): Fill { return dataView == null ? { solid: { color: '#ffffff' } } : DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pForeColor, { solid: { color: '#ffffff' } }); }
+        private pBgColor_get(dataView: DataView): Fill { return dataView == null ? { solid: { color: '#000000' } } : DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pBgColor, { solid: { color: '#000000' } }); }
+        private pInterval_get(dataView: DataView): number { return dataView == null ? 50 : DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pInterval, 50); }
 
         private activeSpeed: number = 0;
         private activeFontSize: number = 0;
@@ -242,7 +241,7 @@ module powerbi.visuals {
         private measure0FormatString = "";
         private measure1FormatString = "";
         private intervalFunc: any = null;
-
+ 
         /** This is called once when the visual is initialially created */
         public init(options: VisualInitOptions): void {
             this.colorPalette = options.style.colorPalette.dataColors;
@@ -272,7 +271,7 @@ module powerbi.visuals {
                 });
 
         }
-       
+      
         /** Update is called for data updates, resizes & formatting changes */
         public update(options: VisualUpdateOptions) {
             var dataViews = options.dataViews;
@@ -297,6 +296,12 @@ module powerbi.visuals {
 
             var width = options.viewport.width;
             var height = options.viewport.height;
+
+            if (width < 0)
+                width = 0;
+            if (height < 0)
+                height = 0;
+
             this.viewportWidth = width;
 
             if (this.pShouldAutoSizeFont_get(this.dataView)) {
@@ -336,7 +341,7 @@ module powerbi.visuals {
                 .attr("font-size", this.activeFontSize + "px")
                 .attr("fill", "#ffffff")
             ;
-           
+          
             // Create text from data
             this.CreateTextFromData(viewModel, options.dataViews[0]);
 
@@ -369,7 +374,7 @@ module powerbi.visuals {
                     dataRelative = viewModel.values[i].values[this.measure1Index];
                     dataRelativeFormatted = ScrollingTextVisual.getFormattedValueByFormatString(dataView, dataRelative, this.measure1FormatString, this);
                 }
-                
+               
                 // Status Color
                 var colorStatus = this.pForeColor_get(this.dataView).solid.color;
                 var colorText = this.pForeColor_get(this.dataView).solid.color;
@@ -382,7 +387,7 @@ module powerbi.visuals {
                         if (this.pShouldUseTextColoring_get(this.dataView)) {
                             colorText = "#96C401";
                         }
-                        splitChar = "▲";
+                        splitChar = " ▲ ";
                     }
                     else {
                         if (this.pShouldUsePosNegColoring_get(this.dataView)) {
@@ -391,7 +396,7 @@ module powerbi.visuals {
                         if (this.pShouldUseTextColoring_get(this.dataView)) {
                             colorText = "#DC0002";
                         }
-                        splitChar = "▼";
+                        splitChar = " ▼ ";
                     }
                 }
 
@@ -414,7 +419,8 @@ module powerbi.visuals {
             var isDefaultDisplayUnit = labelSettings.displayUnits === 0;
             var formatter = valueFormatter.create({
                 format: formatString,
-                value: labelSettings.displayUnits,
+                value: theValue,
+                //                value: labelSettings.displayUnits,
                 precision: labelSettings.precision,
                 displayUnitSystemType: DisplayUnitSystemType.WholeUnits, // keeps this.displayUnitSystemType as the displayUnitSystemType unless the user changed the displayUnits or the precision
                 formatSingleValues: isDefaultDisplayUnit ? true : false,
