@@ -37,6 +37,24 @@ module powerbi.visuals {
         color: string;
     }
 
+    export interface TextCategory {
+        txtCategory: string;
+        txtDataAbsoluteFormatted: string;
+        txtDataRelativeFormatted: string;
+        txtSplitChar: string;
+        txtSeparator: string;
+        colText: string;
+        colStatus: string;
+        posX: number;
+        svgSel: D3.Selection;
+        sCategory: D3.Selection;
+        sDataAbsoluteFormatted: D3.Selection;
+        sDataRelativeFormatted: D3.Selection;
+        sSplitChar: D3.Selection;
+        sSeparator: D3.Selection;
+        actualWidth: number;
+    }
+
     export interface ValueViewModel {
         values: any[];
     }
@@ -168,8 +186,15 @@ module powerbi.visuals {
 
                     thisRef.measure0Index = DataRoleHelper.getMeasureIndexOfRole(group, "Measure Absolute");
                     thisRef.measure1Index = DataRoleHelper.getMeasureIndexOfRole(group, "Measure Deviation");
-                    //                    thisRef.measure0Index = 0;  // Uncomment when debugging...
-                    //                    thisRef.measure1Index = 1;  // Uncomment when debugging...
+
+                    if (thisRef.measure0Index === -1 && thisRef.measure1Index === -1) {
+                        // Maybe we are debuging another dataset that does not have the measure we are after
+                        if (series.length > 0)
+                            thisRef.measure0Index = 0;
+                        if (series.length > 1)
+                            thisRef.measure1Index = 1;
+                    }
+
                     if (thisRef.measure0Index < 0 && thisRef.measure1Index < 0) {
                         return;
                     }
@@ -233,9 +258,9 @@ module powerbi.visuals {
         private activeSpeed: number = 0;
         private activeFontSize: number = 0;
         private activeTargetSpeed: number = 0;
-        private posX: number = 0;
         private totalTextWidth: number = 1000;
         private viewportWidth: number = 1000;
+        private viewportHeight: number = 1000;
         private measure0Index = 0;
         private measure1Index = 1;
         private measure0FormatString = "";
@@ -262,16 +287,123 @@ module powerbi.visuals {
                     that.activeTargetSpeed = that.pSpeed_get(that.dataView);
                 });
 
-            this.sText = this.svg.append("text")
-                .on("mouseover", function () {
-                    that.activeTargetSpeed = 0;
-                })
-                .on("mouseout", function () {
-                    that.activeTargetSpeed = that.pSpeed_get(that.dataView);
-                });
-
+            this.sText = this.svg.append("text");
         }
-      
+
+        public UpdateTextIntervals() {
+            for (var i = 0; i < this.arrTextCategories.length; i++) {
+                var s: TextCategory = this.arrTextCategories[i];
+                if (s.svgSel == null) {
+                    // Create element (it's within the viewport)
+                    if (s.posX < this.viewportWidth) {
+                        var bShouldRenderAbsolute = this.measure0Index >= 0 ? true : false;
+                        var bShouldRenderRelative = this.measure1Index >= 0 ? true : false;
+
+                        var y = this.viewportHeight * 0.5 + this.activeFontSize * 0.30;
+
+                        s.svgSel = this.svg.append("text").attr("x", s.posX);
+                        s.svgSel.attr("font-family", "Lucida Console").attr("font-size", this.activeFontSize + "px");
+
+                        var that = this;
+                        s.svgSel
+                            .on("mouseover", function () {
+                                that.activeTargetSpeed = 0;
+                            })
+                            .on("mouseout", function () {
+                                that.activeTargetSpeed = that.pSpeed_get(that.dataView);
+                            });
+
+                        s.sCategory = s.svgSel.append("tspan")
+                            .text(s.txtCategory + " ")
+                            .attr("y", y)
+                            .style("fill", s.colText)
+                        ;
+
+                        if (bShouldRenderAbsolute) {
+                            s.sDataAbsoluteFormatted = s.svgSel.append("tspan")
+                                .text(s.txtDataAbsoluteFormatted)
+                                .attr("y", y)
+                                .style("fill", s.colText)
+                            ;
+
+                            s.sSplitChar = s.svgSel.append("tspan")
+                                .text(s.txtSplitChar)
+                                .attr("y", y)
+                                .style("fill", s.colStatus)
+                            ;
+                        }
+                        if (bShouldRenderRelative) {
+                            s.sSplitChar = s.svgSel.append("tspan")
+                                .text(s.txtDataRelativeFormatted)
+                                .attr("y", y)
+                                .style("fill", s.colText)
+                            ;
+                        }
+
+                        s.sSplitChar = s.svgSel.append("tspan")
+                            .text(s.txtSeparator)
+                            .attr("y", y)
+                            .style("fill", this.pBgColor_get(this.dataView).solid.color)
+                        ;
+
+                        s.svgSel.each(function () {
+                            s.actualWidth = this.getBBox().width;
+                        });
+
+                        if (i > 0) {
+                            var sPrev: TextCategory = this.arrTextCategories[i - 1];
+                            s.posX = sPrev.posX + sPrev.actualWidth;
+                        }
+                        // Uppdatera alla efterliggande med den nyligen tillagdas position och bredd.
+                        if (i < this.arrTextCategories.length - 1) {
+                            for (var t = i + 1; t < this.arrTextCategories.length; t++) {
+                                var sNext: TextCategory = this.arrTextCategories[t];
+                                sNext.posX = s.posX + s.actualWidth;
+                            }
+                        }
+                    }
+                }
+            }
+            this.activeSpeed += (this.activeTargetSpeed - this.activeSpeed) * 0.5;
+
+            for (var i = 0; i < this.arrTextCategories.length; i++) {
+                var s: TextCategory = this.arrTextCategories[i];
+                s.posX -= this.activeSpeed * 8 * this.pInterval_get(this.dataView) / 100;
+                if (s.svgSel != null) {
+                    s.svgSel.attr("x", s.posX);
+                }
+            }
+
+            // Remove elements outsiide of the left of the viewport
+            for (var i = 0; i < this.arrTextCategories.length; i++) {
+                var s: TextCategory = this.arrTextCategories[i];
+
+                if ((s.posX + s.actualWidth) < 0) {
+                    // Hela elementet är utanför, ta bort det (börja om)
+                    var r1: TextCategory = this.arrTextCategories.splice(i, 1)[0];
+                    r1.svgSel.remove();
+                    r1.svgSel = null;
+                    r1.actualWidth = 0;
+
+                    r1.posX = 0;
+                    if (this.arrTextCategories.length > 0) {
+                        var sLast: TextCategory = this.arrTextCategories[this.arrTextCategories.length - 1];
+                        r1.posX = sLast.posX + 10;
+                    }
+                    else {
+                        r1.posX = this.viewportWidth;
+                    }
+                    if (r1.posX < this.viewportWidth) {
+                        r1.posX = this.viewportWidth;
+                    }
+
+                    this.arrTextCategories.push(r1);
+
+                    break;
+                }
+            }
+        }
+
         /** Update is called for data updates, resizes & formatting changes */
         public update(options: VisualUpdateOptions) {
             var dataViews = options.dataViews;
@@ -284,12 +416,13 @@ module powerbi.visuals {
                 clearInterval(this.intervalFunc);
             }
             this.intervalFunc = setInterval(function (e) {
-                that.sText.attr("x", that.posX);
+                /*that.sText.attr("x", that.posX);
                 that.posX -= that.activeSpeed * 8 * that.pInterval_get(that.dataView) / 100;
                 that.activeSpeed += (that.activeTargetSpeed - that.activeSpeed) * 0.5;
                 if (that.posX < -that.totalTextWidth) {
                     that.posX = that.viewportWidth;
-                }
+                } */
+                that.UpdateTextIntervals();
             }, this.pInterval_get(this.dataView));
 
             this.activeTargetSpeed = this.pSpeed_get(this.dataView);
@@ -303,6 +436,7 @@ module powerbi.visuals {
                 height = 0;
 
             this.viewportWidth = width;
+            this.viewportHeight = height;
 
             if (this.pShouldAutoSizeFont_get(this.dataView)) {
                 this.activeFontSize = height * 0.5;
@@ -351,10 +485,42 @@ module powerbi.visuals {
             });
         }
 
+        private arrTextCategories: TextCategory[];
+
         private CreateTextFromData(viewModel: ViewModel, dataView: DataView) {
+            if (this.arrTextCategories != null && this.arrTextCategories.length > 0) {
+                for (var i = 0; i < this.arrTextCategories.length; i++) {
+                    if (this.arrTextCategories[i].svgSel != null) {
+                        this.arrTextCategories[i].svgSel.remove();
+                        this.arrTextCategories[i].svgSel = null;
+                    }
+                }
+                this.arrTextCategories.splice(0, this.arrTextCategories.length);
+            }
+
+            this.arrTextCategories = [];
+
             var sText = this.pCustomText_get(this.dataView);
             if (sText.length > 0) {
-                this.sText.append("tspan").style("fill", this.pForeColor_get(this.dataView).solid.color).text(sText);
+                // We have a custom text.               
+                var newCat: TextCategory = {
+                    txtCategory: sText,
+                    txtDataAbsoluteFormatted: "",
+                    txtDataRelativeFormatted: "",
+                    txtSeparator: "",
+                    txtSplitChar: "",
+                    colStatus: this.pBgColor_get(this.dataView).solid.color,
+                    colText: this.pForeColor_get(this.dataView).solid.color,
+                    posX: this.viewportWidth + 10,
+                    svgSel: null,
+                    sCategory: null,
+                    sDataAbsoluteFormatted: null,
+                    sDataRelativeFormatted: null,
+                    sSeparator: null,
+                    sSplitChar: null,
+                    actualWidth: 0
+                };
+                this.arrTextCategories.push(newCat);
                 return;
             }
 
@@ -400,16 +566,25 @@ module powerbi.visuals {
                     }
                 }
 
-                this.sText.append("tspan").style("fill", colorText).text(category + " ");
+                var newCat: TextCategory = {
+                    txtCategory: category,
+                    txtDataAbsoluteFormatted: dataAbsoluteFormatted,
+                    txtDataRelativeFormatted: dataRelativeFormatted,
+                    txtSeparator: ".....",
+                    txtSplitChar: splitChar,
+                    colStatus: colorStatus,
+                    colText: colorText,
+                    posX: this.viewportWidth,
+                    svgSel: null,
+                    sCategory: null,
+                    sDataAbsoluteFormatted: null,
+                    sDataRelativeFormatted: null,
+                    sSeparator: null,
+                    sSplitChar: null,
+                    actualWidth: 0
+                };
 
-                if (bShouldRenderAbsolute) {
-                    this.sText.append("tspan").style("fill", colorText).text(dataAbsoluteFormatted);
-                    this.sText.append("tspan").style("fill", colorStatus).text(splitChar);
-                }
-                if (bShouldRenderRelative) {
-                    this.sText.append("tspan").style("fill", colorText).text(dataRelativeFormatted);
-                }
-                this.sText.append("tspan").style("fill", this.pBgColor_get(this.dataView).solid.color).text(".....");
+                this.arrTextCategories.push(newCat);
             }
         }
 
