@@ -105,6 +105,9 @@ module powerbi.visuals {
 
                 }
             }],
+            sorting: {
+                default: {},
+            },            
             // Objects light up the formatting pane
             objects: {
                 general: {
@@ -266,6 +269,7 @@ module powerbi.visuals {
         private measure0FormatString = "";
         private measure1FormatString = "";
         private intervalFunc: any = null;
+        private gPosX: number = 0;
  
         /** This is called once when the visual is initialially created */
         public init(options: VisualInitOptions): void {
@@ -365,6 +369,10 @@ module powerbi.visuals {
                 }
             }
             this.activeSpeed += (this.activeTargetSpeed - this.activeSpeed) * 0.5;
+            this.gPosX -= this.activeSpeed * 8 * this.pInterval_get(this.dataView) / 100;
+            if (this.gPosX < -5000) {
+                this.gPosX = 0;
+            }
 
             for (var i = 0; i < this.arrTextCategories.length; i++) {
                 var s: TextCategory = this.arrTextCategories[i];
@@ -488,6 +496,10 @@ module powerbi.visuals {
         private arrTextCategories: TextCategory[];
 
         private CreateTextFromData(viewModel: ViewModel, dataView: DataView) {
+            if (this.gPosX === 0) {
+                this.gPosX = this.viewportWidth;
+            }
+
             if (this.arrTextCategories != null && this.arrTextCategories.length > 0) {
                 for (var i = 0; i < this.arrTextCategories.length; i++) {
                     if (this.arrTextCategories[i].svgSel != null) {
@@ -520,6 +532,7 @@ module powerbi.visuals {
                     sSplitChar: null,
                     actualWidth: 0
                 };
+                newCat.posX = this.gPosX;
                 this.arrTextCategories.push(newCat);
                 return;
             }
@@ -583,7 +596,9 @@ module powerbi.visuals {
                     sSplitChar: null,
                     actualWidth: 0
                 };
-
+                if (i === 0) {
+                    newCat.posX = this.gPosX;
+                }
                 this.arrTextCategories.push(newCat);
             }
         }
