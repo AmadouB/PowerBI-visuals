@@ -28,7 +28,7 @@
 Created by Fredrik Hedenström, 2015-09-08
 */
 
-//-/// <reference path="../_references.ts"/>
+/// <reference path="../_references.ts"/>
 
 module powerbi.visuals {
     export interface KPIStatusWithHistoryDataPoint {
@@ -273,6 +273,10 @@ module powerbi.visuals {
             this.kpiGoal = dataPoints[dataPoints.length - 1].GoalOrg;
             this.kpiActual = dataPoints[dataPoints.length - 1].ActualOrg;
 
+            if (this.kpiText.length === 0) {
+                this.kpiText = dataView.categorical.values[0].source.displayName;
+            }
+
             this.svg.attr({
                 'height': viewport.height,
                 'width': viewport.width
@@ -330,11 +334,14 @@ module powerbi.visuals {
                     .interpolate("linear");
 
                 this.sLinePath
-                    .attr("d", lineFunction(dataPoints))
                     .attr("stroke", "white")
                     .attr("stroke-width", sH * 0.015)
                     .attr("fill", "none")
                     .attr("stroke-linejoin", "round");
+
+                if (dataPoints.length > 1) {
+                    this.sLinePath.attr("d", lineFunction(dataPoints));
+                }
 
                 var selectionCircle = this.sMainGroupElement2.selectAll("circle").data(dataPoints, function (d) { return d.dataId; });
 
@@ -440,7 +447,7 @@ module powerbi.visuals {
         }
 
         private static getProp_KPIName(dataView: DataView) {
-            return KPIStatusWithHistory.getPropString(dataView, 'general', 'pKPIName', 'Name of KPI');
+            return KPIStatusWithHistory.getPropString(dataView, 'general', 'pKPIName', '');
         }
 
         private static getProp_BandingPercentage(dataView: DataView) {
