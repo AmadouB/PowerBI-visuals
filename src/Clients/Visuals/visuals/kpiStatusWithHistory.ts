@@ -95,11 +95,17 @@ module powerbi.visuals {
                         dataReductionAlgorithm: { top: {} }
                     },
                     values: {
-                        select: [
+                        group: {
+                            by: 'Series',
+                            select: [{ bind: { to: 'Values' } }, { bind: { to: 'Targets' } }],
+                            dataReductionAlgorithm: { top: {} }
+                        }                        
+                        /*select: [
                             { bind: { to: 'Values' } },
                             { bind: { to: 'Targets' } }
-                        ]
+                        ] */
                     }
+
                 },
             }],
             objects: {
@@ -155,8 +161,12 @@ module powerbi.visuals {
         private kpiBandingCompareType: any;
         private kpiBandingStatusType: any;
 
-        private kpiTargetExists: boolean;
-        private kpiHistoryExists: boolean;
+        public kpiTargetExists: boolean;
+        public kpiActualExists: boolean;
+        public kpiHistoryExists: boolean;
+
+        public measureActualIndex: number;
+        public measureTargetIndex: number;
 
         private cardFormatSetting: CardFormatSetting;
 
@@ -191,35 +201,40 @@ module powerbi.visuals {
                 catValues = cat.values;
             }
 
-            // TODO / Known bug: We need to find the correct index for Actuals and Targets (if the user selects the target first it is treated as actual (index=0)). For some reason the ROLES attribute is not working...
+            // Find the correct index for Actuals and Targets  
+            var group = catDv.values.grouped();
+            var series = catDv.values;
+            thisRef.measureActualIndex = DataRoleHelper.getMeasureIndexOfRole(group, "Values");
+            thisRef.measureTargetIndex = DataRoleHelper.getMeasureIndexOfRole(group, "Targets");
+            if (thisRef.measureActualIndex === -1 && thisRef.measureTargetIndex === -1) {
+                // Maybe we are debuging another dataset that does not have the measure we are after
+                if (series.length > 0)
+                    thisRef.measureActualIndex = 0;
+                if (series.length > 1)
+                    thisRef.measureTargetIndex = 1;
+            }
 
             var values = catDv.values;
 
             var historyActualData = [];
             var historyGoalData = [];
 
-            thisRef.kpiTargetExists = false;
-            if (values.length > 1) {
-                thisRef.kpiTargetExists = true;
-            }
+            thisRef.kpiTargetExists = thisRef.measureTargetIndex === -1 ? false : true;
+            thisRef.kpiActualExists = thisRef.measureActualIndex === -1 ? false : true;
+            /*            thisRef.kpiTargetExists = false;
+                        if (values.length > 1) {
+                            thisRef.kpiTargetExists = true;
+                        } */
 
             for (var i = 0, len = values[0].values.length; i < len; i++) {
                 if (thisRef.kpiTargetExists) {
-                    if (DataRoleHelper.hasRole(values[0].source, 'Values')/* && metaCols[0].roles && metaCols[0].roles['Values']*/) {
-                        var actualValue = values[0].values[i];
-                        var targetValue = values[1].values[i];
-                    }
-                    else {
-                        var actualValue = values[1].values[i];
-                        var targetValue = values[0].values[i];
-                    }
+                    var targetValue = values[thisRef.measureTargetIndex].values[i];
                     historyGoalData.push(targetValue);
                 }
-                else {
-                    var actualValue = values[0].values[i];
+                if (thisRef.kpiActualExists) {
+                    var actualValue = values[thisRef.measureActualIndex].values[i];
+                    historyActualData.push(actualValue);
                 }
-
-                historyActualData.push(actualValue);
             }
 
             var nW = sW * 0.9;
@@ -296,6 +311,22 @@ module powerbi.visuals {
 
             var dataPoints: KPIStatusWithHistoryDataPoint[] = KPIStatusWithHistory.converter(dataView, viewport, this);
 
+            if (dataPoints.length <= 0) {
+                var ke: KPIStatusWithHistoryDataPoint = {
+                    actual: NaN,
+                    ActualOrg: NaN,
+                    dataId: null,
+                    goal: NaN,
+                    GoalOrg: NaN,
+                    selector: null,
+                    tooltipInfo: null,
+                    w: 0,
+                    x: 0,
+                    y: 0
+                };
+                dataPoints.push(ke);
+            }
+
             this.kpiText = KPIStatusWithHistory.getProp_KPIName(dataView);
             this.kpiChartType = KPIStatusWithHistory.getProp_ChartType(dataView);
             this.kpiBandingPercent = KPIStatusWithHistory.getProp_BandingPercentage(dataView) / 100;
@@ -305,8 +336,8 @@ module powerbi.visuals {
             this.kpiGoal = dataPoints[dataPoints.length - 1].GoalOrg;
             this.kpiActual = dataPoints[dataPoints.length - 1].ActualOrg;
 
-            if (this.kpiText.length === 0) {
-                this.kpiText = dataView.categorical.values[0].source.displayName;
+            if (this.kpiText.length === 0 && this.kpiActualExists) {
+                this.kpiText = dataView.categorical.values[this.measureActualIndex].source.displayName;
             }
 
             this.svg.attr({
