@@ -42,6 +42,33 @@ module powerbi.visuals {
         tooltipInfo: TooltipDataItem[];
     }
 
+    module KPIIndicatorChartType {
+        export var LINE: string = 'LINE';
+        export var BAR: string = 'BAR';
+        export var type: IEnumType = createEnumType([
+            { value: LINE, displayName: "Line" },
+            { value: BAR, displayName: "Bar" },
+        ]);
+    }
+    module KPIIndicatorBandingType {
+        export var IIB: string = 'IIB';
+        export var DIB: string = 'DIB';
+        export var CIB: string = 'CIB';
+        export var type: IEnumType = createEnumType([
+            { value: IIB, displayName: "Increasing is better" },
+            { value: DIB, displayName: "Decreasing is better" },
+            { value: CIB, displayName: "Closer is better" },
+        ]);
+    }
+    module KPIIndicatorBandingCompareType {
+        export var ABS: string = 'ABS';
+        export var REL: string = 'REL';
+        export var type: IEnumType = createEnumType([
+            { value: ABS, displayName: "Absolute" },
+            { value: REL, displayName: "Relative" },
+        ]);
+    }
+
     export class KPIStatusWithHistory implements IVisual {
         public static capabilities: VisualCapabilities = {
             dataRoles: [
@@ -91,16 +118,16 @@ module powerbi.visuals {
                             displayName: 'Banding percentage'
                         },
                         pBandingType: {
-                            type: { text: true },
-                            displayName: 'Banding type (IIB, DIB or CIB)'
+                            displayName: 'Banding type',
+                            type: { enumeration: KPIIndicatorBandingType.type }
                         },
                         pBandingCompareType: {
-                            type: { text: true },
-                            displayName: 'Banding compare type (ABS, REL)'
+                            displayName: 'Banding comparison',
+                            type: { enumeration: KPIIndicatorBandingCompareType.type }
                         },
                         pChartType: {
-                            type: { text: true },
-                            displayName: 'Chart type (LINE, BAR)'
+                            displayName: 'Chart type',
+                            type: { enumeration: KPIIndicatorChartType.type }
                         }
                     },
                 }
@@ -120,12 +147,13 @@ module powerbi.visuals {
         private sKPIActualDiffText: D3.Selection;
         private sLinePath: D3.Selection;
         private kpiText: string;
-        private kpiBandingCompareType: string;
-        private kpiBandingStatusType: string;
         private kpiGoal: number;
         private kpiActual: number;
         private kpiBandingPercent: number;
-        private kpiChartType: string;
+
+        private kpiChartType: any;
+        private kpiBandingCompareType: any;
+        private kpiBandingStatusType: any;
 
         private kpiTargetExists: boolean;
         private kpiHistoryExists: boolean;
@@ -212,6 +240,10 @@ module powerbi.visuals {
                     selectorId = SelectionId.createWithId(cat.identity[i]).getSelector();
                 }
 
+                if (isNaN(yPos)) {
+                    yPos = 0;
+                }
+
                 dataPoints.push({
                     x: (i * nW / historyActualData.length) + (nW / historyActualData.length) * 0.5 + (sW - nW) / 2,
                     y: sH - yPos - sH * 0.1 - 2,
@@ -265,10 +297,10 @@ module powerbi.visuals {
             var dataPoints: KPIStatusWithHistoryDataPoint[] = KPIStatusWithHistory.converter(dataView, viewport, this);
 
             this.kpiText = KPIStatusWithHistory.getProp_KPIName(dataView);
-            this.kpiChartType = KPIStatusWithHistory.getProp_ChartType(dataView).toUpperCase();
+            this.kpiChartType = KPIStatusWithHistory.getProp_ChartType(dataView);
             this.kpiBandingPercent = KPIStatusWithHistory.getProp_BandingPercentage(dataView) / 100;
-            this.kpiBandingStatusType = KPIStatusWithHistory.getProp_BandingType(dataView).toUpperCase();
-            this.kpiBandingCompareType = KPIStatusWithHistory.getProp_BandingCompareType(dataView).toUpperCase();
+            this.kpiBandingStatusType = KPIStatusWithHistory.getProp_BandingType(dataView);
+            this.kpiBandingCompareType = KPIStatusWithHistory.getProp_BandingCompareType(dataView);
 
             this.kpiGoal = dataPoints[dataPoints.length - 1].GoalOrg;
             this.kpiActual = dataPoints[dataPoints.length - 1].ActualOrg;
@@ -326,7 +358,7 @@ module powerbi.visuals {
                 .attr("text-anchor", "end")
                 .text(diffText);
 
-            if (this.kpiChartType === StatusChartType.LineChart) {
+            if (this.kpiChartType === KPIIndicatorChartType.LINE) {
                 // Line chart
                 var lineFunction = d3.svg.line()
                     .x(function (d) { return d.x; })
@@ -339,9 +371,9 @@ module powerbi.visuals {
                     .attr("fill", "none")
                     .attr("stroke-linejoin", "round");
 
-                if (dataPoints.length > 1) {
-                    this.sLinePath.attr("d", lineFunction(dataPoints));
-                }
+                //if (dataPoints.length > 1) {
+                this.sLinePath.attr("d", lineFunction(dataPoints));
+                //}
 
                 var selectionCircle = this.sMainGroupElement2.selectAll("circle").data(dataPoints, function (d) { return d.dataId; });
 
@@ -369,7 +401,7 @@ module powerbi.visuals {
 
                 TooltipManager.addTooltip(selectionCircle, (tooltipEvent: TooltipEvent) => tooltipEvent.data.tooltipInfo);
             }
-            else if (this.kpiChartType === StatusChartType.BarChart) {
+            else if (this.kpiChartType === KPIIndicatorChartType.BAR) {
                 // Bar chart
                 var selectionBar = this.sMainGroupElement2.selectAll("rect").data(dataPoints, function (d) { return d.dataId; });
 
@@ -446,6 +478,21 @@ module powerbi.visuals {
             return defaultValue;
         }
 
+        private static getPropAny(dataView: DataView, propertyGroupName: string, propertyName: string, defaultValue: string): any {
+            if (dataView) {
+                var objects = dataView.metadata.objects;
+                if (objects) {
+                    var propGroup = objects[propertyGroupName];
+                    if (propGroup) {
+                        var propValue = <any>propGroup[propertyName];
+                        if (propValue)
+                            return propValue;
+                    }
+                }
+            }
+            return defaultValue;
+        }
+
         private static getProp_KPIName(dataView: DataView) {
             return KPIStatusWithHistory.getPropString(dataView, 'general', 'pKPIName', '');
         }
@@ -455,15 +502,15 @@ module powerbi.visuals {
         }
 
         private static getProp_BandingType(dataView: DataView) {
-            return KPIStatusWithHistory.getPropString(dataView, 'general', 'pBandingType', 'IIB');
+            return KPIStatusWithHistory.getPropAny(dataView, 'general', 'pBandingType', KPIIndicatorBandingType.IIB);
         }
 
         private static getProp_BandingCompareType(dataView: DataView) {
-            return KPIStatusWithHistory.getPropString(dataView, 'general', 'pBandingCompareType', 'REL');
+            return KPIStatusWithHistory.getPropAny(dataView, 'general', 'pBandingCompareType', KPIIndicatorBandingCompareType.REL);
         }
 
         private static getProp_ChartType(dataView: DataView) {
-            return KPIStatusWithHistory.getPropString(dataView, 'general', 'pChartType', 'LINE');
+            return KPIStatusWithHistory.getPropAny(dataView, 'general', 'pChartType', KPIIndicatorChartType.LINE);
         }
 
         public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[] {
@@ -495,19 +542,16 @@ module powerbi.visuals {
     }
 
     var StatusColor = { RED: "#DC0002", YELLOW: "#F6C000", GREEN: "#96C401" };
-    var StatusBandingType = { IncreasingIsBetter: "IIB", DecreasingIsBetter: "DIB", CloserIsBetter: "CIB" };
-    var StatusBandingCompareType = { Absolute: "ABS", Relative: "REL" };
-    var StatusChartType = { LineChart: "LINE", BarChart: "BAR" };
 
     function GetKPIActualDiffFromGoal(dActual, dGoal, oBandingCompareType) {
         var retValue = "";
         if (dActual > dGoal) {
             retValue += "+";
         }
-        if (oBandingCompareType === StatusBandingCompareType.Relative) {
+        if (oBandingCompareType === KPIIndicatorBandingCompareType.REL) {
             retValue += Math.round(1000 * (dActual - dGoal) / dGoal) / 10 + " %";
         }
-        else if (oBandingCompareType === StatusBandingCompareType.Absolute) {
+        else if (oBandingCompareType === KPIIndicatorBandingCompareType.ABS) {
             retValue += Math.round(1000 * (dActual - dGoal)) / 10 + " %";
         }
         return retValue;
@@ -515,10 +559,10 @@ module powerbi.visuals {
 
     function GetBandingActual(dGoal, dPercentBandingCalculated, dPercentBanding, oBandingCompareType) {
         var retValue = 0;
-        if (oBandingCompareType === StatusBandingCompareType.Relative) {
+        if (oBandingCompareType === KPIIndicatorBandingCompareType.REL) {
             retValue = dGoal * dPercentBandingCalculated;
         }
-        else if (oBandingCompareType === StatusBandingCompareType.Absolute) {
+        else if (oBandingCompareType === KPIIndicatorBandingCompareType.ABS) {
             retValue = dGoal - dPercentBanding;
         }
         return retValue;
@@ -528,7 +572,7 @@ module powerbi.visuals {
         var ReturnStatusColor = StatusColor.YELLOW;
         var dActualBandingGY, dActualBandingRY;
         switch (oBandingType) {
-            case StatusBandingType.IncreasingIsBetter:
+            case KPIIndicatorBandingType.IIB:
                 dActualBandingGY = dGoal;
                 dActualBandingRY = GetBandingActual(dGoal, (1 - dPercentBanding), dPercentBanding, oBandingCompareType);
                 if (dActual >= dActualBandingGY) {
@@ -538,7 +582,7 @@ module powerbi.visuals {
                     ReturnStatusColor = StatusColor.RED;
                 }
                 break;
-            case StatusBandingType.DecreasingIsBetter:
+            case KPIIndicatorBandingType.DIB:
                 dActualBandingGY = dGoal;
                 dActualBandingRY = GetBandingActual(dGoal, (1 + dPercentBanding), -dPercentBanding, oBandingCompareType);
                 if (dActual <= dActualBandingGY) {
@@ -548,7 +592,7 @@ module powerbi.visuals {
                     ReturnStatusColor = StatusColor.RED;
                 }
                 break;
-            case StatusBandingType.CloserIsBetter:
+            case KPIIndicatorBandingType.CIB:
                 var dActualBandingGY_Pos = GetBandingActual(dGoal, (1 + (dPercentBanding * 0.5)), -(dPercentBanding * 0.5), oBandingCompareType);
                 var dActualBandingGY_Neg = GetBandingActual(dGoal, (1 - (dPercentBanding * 0.5)), (dPercentBanding * 0.5), oBandingCompareType);
                 var dActualBandingRY_Pos = GetBandingActual(dGoal, (1 + (dPercentBanding * 1.5)), -(dPercentBanding * 1.0), oBandingCompareType);
