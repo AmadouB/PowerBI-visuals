@@ -1,0 +1,8 @@
+﻿The Breakdown Tree visual is an experiment for the visual contest (2015). It is not "production ready", but you can play with it. Here are some known issues:
+* To start drilling down you need to enable drill-down (the arrow in the upper right corner) on the visual.
+* Some text-clipping issues can occur in the desktop version.
+* Cross-filtering is not supported.
+* The visual will not keep track of active drill-down levels when navigating away from the report. It will always visually start on the first level.
+* The integration to drill-up/down is not officially supported by Power BI, which means it can break in future releases.
+
+/ Fredrik Hedenström

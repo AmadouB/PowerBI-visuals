@@ -479,12 +479,12 @@ module powerbi.visuals {
             element.append(this.svgContainer);
 
             this.cardFormatSetting = this.getDefaultFormatSettings();
-            
+
             this.selectionManager = new utility.SelectionManager({ hostServices: options.host });
 
             this.svg = d3.select("#DivContainer").append("svg")
                 .classed(BreakdownTree.VisualClassName, true)
-                ;
+            ;
 
             this.clearCatcher = appendClearCatcher(this.svg);
 
@@ -713,8 +713,14 @@ module powerbi.visuals {
             if (sH > curSize.h) {
                 curSize.h = sH;
             }
+
             for (var l = 0; l < this.svgLevels.length; l++) {
                 var curLev = this.svgLevels[l];
+
+                if (curLev.data.slices.length === 0) { // To avoid error
+                    break;
+                }
+
                 var prevLev = null;
                 if (l > 0) {
                     prevLev = this.svgLevels[l - 1];
@@ -751,6 +757,7 @@ module powerbi.visuals {
                 if (minValue > 0) {
                     minValue = 0;
                 }
+
                 var sumMeasureCalc = curLev.data.slices[0].value - minValue;
                 for (var i = 0; i < curLev.data.slices.length; i++) {
                     var curVal = curLev.data.slices[i];
@@ -799,6 +806,11 @@ module powerbi.visuals {
             }
 
             var oLevel = this.svgLevels[this.svgLevels.length - 1];
+
+            if (oLevel == null || oLevel.data == null) { // To avoid error
+                return;
+            }
+
             this.svgLevels.length <= 1 ? oPrevLevel = null : oPrevLevel = this.svgLevels[this.svgLevels.length - 2];
             shapes = BreakdownTree.drawDefaultShapes(oLevel.data, oLevel.data.slices, oLevel.mainSelection, duration);
             BreakdownTree.drawOtherShapes(oLevel, oPrevLevel, oLevel.data.slices, oLevel.otherSelection, duration);
@@ -850,8 +862,13 @@ module powerbi.visuals {
         public static drawOtherShapes(levelCur: any, levelPrev: any, slices: BreakdownTreeSlice[], graphicsContext: D3.Selection, transitionDuration: number) {
             var data = levelCur.data;
             var dataPrev = null;
-            if (levelPrev != null)
+            if (levelPrev != null) {
                 dataPrev = levelPrev.data;
+            }
+
+            if (slices.length === 0) {
+                return;
+            }
 
             var isLastLevel = (slices[0].totalLevels - 1) === slices[0].currentLevelIndex;
             var colorSelected = isLastLevel ? colYellow : colYellowLight;
@@ -897,13 +914,12 @@ module powerbi.visuals {
                 .attr("x", function (d) { return d.x + itemWidth * 0.05; })
                 .attr("y", function (d) { return d.y + itemHeightDistance * 0.7; })
                 .attr("class", "BarLabel")
-                .attr("clip-path", function (d) { return "url(#textclip" + d.currentLevelIndex + ")"; })
+                .attr("clip-path", function (d) { return "url(" + location.href + "#textclip" + d.currentLevelIndex + ")"; })
                 .attr("font-size", "12px")
                 .text(function (d) { return d.formattedValue + " " + d.label; })
-                .attr("clip-path", "url(#textclip" + slices[0].currentLevelIndex + ")")
             ;
             s.exit().remove();
-            
+                                       
             // Clip Path
             levelCur.clipPathSelection.select("clipPath").attr("id", "textclip" + slices[0].currentLevelIndex).append("rect");
             levelCur.clipPathSelection.select("clipPath").select("rect")
@@ -911,7 +927,7 @@ module powerbi.visuals {
                 .attr("y", slices[0].yAdj)
                 .attr("width", itemWidth * 0.9)
                 .attr("height", itemHeightDistance * slices.length)
-            ;
+            ; 
             
             // Connections
             if (dataPrev != null) {
@@ -965,6 +981,10 @@ module powerbi.visuals {
 
         public static drawDefaultShapes(data: BreakdownTreeData, slices: BreakdownTreeSlice[], graphicsContext: D3.Selection, transitionDuration: number): D3.UpdateSelection {
             var s = graphicsContext.selectAll(".Box").data(slices);
+
+            if (slices.length === 0) { // To avoid error
+                return;
+            }
 
             var isLastLevel = (slices[0].totalLevels - 2) === slices[0].currentLevelIndex;
             var colorSelected = isLastLevel ? colYellow : colYellowLight;
