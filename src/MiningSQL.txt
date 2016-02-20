@@ -1,0 +1,54 @@
+
+
+
+delete from [MiningResults]
+where len(NODE_RULE)<1
+
+delete from [MiningResults]
+where NODE_RULE not like '%length="2"%'
+
+
+
+
+select m.*
+,d1.BusinessArea
+,d1.ProductCategory
+,d1.IsAccessory
+,d1.IsInsurance
+,d1.IsSubscription
+,d1.ModelName
+,d2.BusinessArea
+,d2.ProductCategory
+,d2.IsAccessory
+,d2.IsInsurance
+,d2.IsSubscription
+,d2.ModelName
+from
+(
+select * 
+,ItemWK1=SUBSTRING(NODE_CAPTION,0,charindex('=',NODE_CAPTION)-1)
+,ItemWK2=SUBSTRING(NODE_CAPTION,charindex('>',NODE_CAPTION)+2,LEN(NODE_CAPTION) - CHARINDEX('=', REVERSE(NODE_CAPTION))-charindex('>',NODE_CAPTION)-2)
+from [MiningResults]
+) m
+left join DW.DimItem d1 on m.ItemWK1=d1.WKItem
+left join DW.DimItem d2 on m.ItemWK2=d2.WKItem
+
+
+select top 10 * from miningtest.OrderRow
+
+drop table miningtest.OrderRow
+select OrderNumber, f.WKItem, ModelName=max(ModelName), OrderRowQuantity=SUM([OrderRowQuantity]), [OrderAmountSEK]=SUM([OrderAmountSEK])
+into miningtest.OrderRow
+from DW.FactOrderRow f
+left join DW.DimItem d on f.WKItem=d.WKItem
+where WKOrderDate between '2013-03-01' and '2013-08-31'
+and f.IsPackageItem='N'
+
+group by f.OrderNumber, f.WKItem
+
+drop table miningtest.OrderHead
+select OrderNumber, WKOrderDate=max(WKOrderDate), OrderRowQuantity=SUM(OrderRowQuantity), OrderAmountSEK=SUM(OrderAmountSEK)
+into miningtest.OrderHead
+from DW.FactOrderRow
+where WKOrderDate between '2013-03-01' and '2013-08-31'
+group by OrderNumber

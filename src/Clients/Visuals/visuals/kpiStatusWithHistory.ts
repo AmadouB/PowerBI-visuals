@@ -31,6 +31,8 @@ Created by Fredrik Hedenström, 2015-09-08
 /// <reference path="../_references.ts"/>
 
 module powerbi.visuals {
+    import DataRoleHelper = powerbi.data.DataRoleHelper;
+
     export interface KPIStatusWithHistoryDataPoint {
         x: number;
         y: number;
@@ -70,6 +72,12 @@ module powerbi.visuals {
     }
 
     export class KPIStatusWithHistory implements IVisual {
+        // Put all new properties here instead...
+        private static properties = {
+            pIndicateDifferenceAsPercent: { objectName: 'kpi', propertyName: 'pIndicateDifferenceAsPercent' },
+            pForceThousandSeparator: { objectName: 'kpi', propertyName: 'pForceThousandSeparator' },
+        };
+
         public static capabilities: VisualCapabilities = {
             dataRoles: [
                 {
@@ -109,12 +117,9 @@ module powerbi.visuals {
                 },
             }],
             objects: {
-                general: {
-                    displayName: data.createDisplayNameGetter('Visual_General'),
+                kpi: {
+                    displayName: "KPI",
                     properties: {
-                        formatString: {
-                            type: { formatting: { formatString: true } },
-                        },
                         pKPIName: {
                             type: { text: true },
                             displayName: 'KPI name'
@@ -131,9 +136,26 @@ module powerbi.visuals {
                             displayName: 'Banding comparison',
                             type: { enumeration: KPIIndicatorBandingCompareType.type }
                         },
+                        pIndicateDifferenceAsPercent: {
+                            displayName: 'Deviation as %',
+                            type: { bool: true }
+                        },
                         pChartType: {
                             displayName: 'Chart type',
                             type: { enumeration: KPIIndicatorChartType.type }
+                        },
+                        pForceThousandSeparator: {
+                            displayName: 'Thousands separator',
+                            type: { bool: true }
+                        }
+                    },
+                },
+
+                general: {
+                    displayName: data.createDisplayNameGetter('Visual_General'),
+                    properties: {
+                        formatString: {
+                            type: { formatting: { formatString: true } },
                         }
                     },
                 }
@@ -165,12 +187,19 @@ module powerbi.visuals {
         public kpiActualExists: boolean;
         public kpiHistoryExists: boolean;
 
+        private kpiDisplayDifferenceAsPercent: boolean;
+        private kpiForceThansandsSeparator: boolean;
+
         public measureActualIndex: number;
         public measureTargetIndex: number;
 
         private cardFormatSetting: CardFormatSetting;
 
-        private getFormattedValue(dataView: DataView, theValue: number): string {
+        private getFormattedValue(dataView: DataView, theValue: number, forceThousandSeparator: boolean): string {
+            if (forceThousandSeparator) {
+                return Math.round(theValue).toLocaleString();
+            }
+
             this.getMetaDataColumn(dataView);
             this.cardFormatSetting = this.getDefaultFormatSettings();
             var metaDataColumn = this.metaDataColumn;
@@ -199,6 +228,12 @@ module powerbi.visuals {
             if (thisRef.kpiHistoryExists) {
                 cat = catDv.categories[0]; // This only works if we have a category axis
                 catValues = cat.values;
+            }
+
+            // This is necessary for backward compatability with Power BI Desktop client Dec 2015
+            // and Jan 2016. 
+            if (DataRoleHelper === undefined) {
+                DataRoleHelper = powerbi.visuals.DataRoleHelper;
             }
 
             // Find the correct index for Actuals and Targets  
@@ -244,9 +279,9 @@ module powerbi.visuals {
 
             for (var i = 0; i < historyActualData.length; i++) {
                 var yPos = nH * (historyActualData[i] - nMin) / (nMax - nMin);
-                var toolTipString = 'Actual ' + thisRef.getFormattedValue(dataView, historyActualData[i]);
+                var toolTipString = 'Actual ' + thisRef.getFormattedValue(dataView, historyActualData[i], thisRef.kpiForceThansandsSeparator);
                 if (thisRef.kpiTargetExists) {
-                    toolTipString += " ; Target " + thisRef.getFormattedValue(dataView, historyGoalData[i]);
+                    toolTipString += " ; Target " + thisRef.getFormattedValue(dataView, historyGoalData[i], thisRef.kpiForceThansandsSeparator);
                 }
                 var toolTipStringName = "";
                 var selectorId = null;
@@ -332,6 +367,8 @@ module powerbi.visuals {
             this.kpiBandingPercent = KPIStatusWithHistory.getProp_BandingPercentage(dataView) / 100;
             this.kpiBandingStatusType = KPIStatusWithHistory.getProp_BandingType(dataView);
             this.kpiBandingCompareType = KPIStatusWithHistory.getProp_BandingCompareType(dataView);
+            this.kpiDisplayDifferenceAsPercent = this.getProp_DifferenceAsPercent(dataView);
+            this.kpiForceThansandsSeparator = this.getProp_ForceThousandsSeparator(dataView);
 
             this.kpiGoal = dataPoints[dataPoints.length - 1].GoalOrg;
             this.kpiActual = dataPoints[dataPoints.length - 1].ActualOrg;
@@ -375,11 +412,11 @@ module powerbi.visuals {
                 .attr("fill", "white")
                 .attr("style", "font-weight:bold;font-family:calibri;font-size:" + sL * 0.08 + "px")
                 .attr("text-anchor", "middle")
-                .text(this.getFormattedValue(dataView, this.kpiActual));
+                .text(this.getFormattedValue(dataView, this.kpiActual, this.kpiForceThansandsSeparator));
 
             var diffText = "";
             if (this.kpiTargetExists) {
-                diffText = "(" + GetKPIActualDiffFromGoal(this.kpiActual, this.kpiGoal, this.kpiBandingCompareType) + ")";
+                diffText = "(" + GetKPIActualDiffFromGoal(this.kpiActual, this.kpiGoal, this.kpiBandingCompareType, this.kpiDisplayDifferenceAsPercent) + ")";
             }
             this.sKPIActualDiffText
                 .attr("x", sW * 0.95)
@@ -525,40 +562,60 @@ module powerbi.visuals {
         }
 
         private static getProp_KPIName(dataView: DataView) {
-            return KPIStatusWithHistory.getPropString(dataView, 'general', 'pKPIName', '');
+            return KPIStatusWithHistory.getPropString(dataView, 'kpi', 'pKPIName', '');
         }
 
         private static getProp_BandingPercentage(dataView: DataView) {
-            return KPIStatusWithHistory.getPropNumeric(dataView, 'general', 'pBandingPercentage', 5);
+            return KPIStatusWithHistory.getPropNumeric(dataView, 'kpi', 'pBandingPercentage', 5);
         }
 
         private static getProp_BandingType(dataView: DataView) {
-            return KPIStatusWithHistory.getPropAny(dataView, 'general', 'pBandingType', KPIIndicatorBandingType.IIB);
+            return KPIStatusWithHistory.getPropAny(dataView, 'kpi', 'pBandingType', KPIIndicatorBandingType.IIB);
         }
 
         private static getProp_BandingCompareType(dataView: DataView) {
-            return KPIStatusWithHistory.getPropAny(dataView, 'general', 'pBandingCompareType', KPIIndicatorBandingCompareType.REL);
+            return KPIStatusWithHistory.getPropAny(dataView, 'kpi', 'pBandingCompareType', KPIIndicatorBandingCompareType.REL);
         }
 
         private static getProp_ChartType(dataView: DataView) {
-            return KPIStatusWithHistory.getPropAny(dataView, 'general', 'pChartType', KPIIndicatorChartType.LINE);
+            return KPIStatusWithHistory.getPropAny(dataView, 'kpi', 'pChartType', KPIIndicatorChartType.LINE);
+        }
+
+        private getProp_DifferenceAsPercent(dataView: DataView) {
+            if (dataView == null) {
+                return true;
+            }
+            else {
+                return DataViewObjects.getValue(dataView.metadata.objects, KPIStatusWithHistory.properties.pIndicateDifferenceAsPercent, true);
+            }
+        }
+
+        private getProp_ForceThousandsSeparator(dataView: DataView) {
+            if (dataView == null) {
+                return true;
+            }
+            else {
+                return DataViewObjects.getValue(dataView.metadata.objects, KPIStatusWithHistory.properties.pForceThousandSeparator, false);
+            }
         }
 
         public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[] {
             var instances: VisualObjectInstance[] = [];
             var dataView = this.dataView;
             switch (options.objectName) {
-                case 'general':
+                case 'kpi':
                     var general: VisualObjectInstance = {
-                        objectName: 'general',
-                        displayName: 'General',
+                        objectName: 'kpi',
+                        displayName: 'KPI',
                         selector: null,
                         properties: {
                             pKPIName: KPIStatusWithHistory.getProp_KPIName(dataView),
                             pBandingPercentage: KPIStatusWithHistory.getProp_BandingPercentage(dataView),
                             pBandingType: KPIStatusWithHistory.getProp_BandingType(dataView),
                             pBandingCompareType: KPIStatusWithHistory.getProp_BandingCompareType(dataView),
-                            pChartType: KPIStatusWithHistory.getProp_ChartType(dataView)
+                            pChartType: KPIStatusWithHistory.getProp_ChartType(dataView),
+                            pIndicateDifferenceAsPercent: this.getProp_DifferenceAsPercent(dataView),
+                            pForceThousandSeparator: this.getProp_ForceThousandsSeparator(dataView)
                         }
                     };
                     instances.push(general);
@@ -574,16 +631,22 @@ module powerbi.visuals {
 
     var StatusColor = { RED: "#DC0002", YELLOW: "#F6C000", GREEN: "#96C401" };
 
-    function GetKPIActualDiffFromGoal(dActual, dGoal, oBandingCompareType) {
+    function GetKPIActualDiffFromGoal(dActual, dGoal, oBandingCompareType, bDisplayDiffAsPercent) {
         var retValue = "";
         if (dActual > dGoal) {
             retValue += "+";
         }
+        var PercMulti = 10;
+        var PercSign = "";
+        if (bDisplayDiffAsPercent) {
+            PercMulti = 1000;
+            PercSign = " %";
+        }
         if (oBandingCompareType === KPIIndicatorBandingCompareType.REL) {
-            retValue += Math.round(1000 * (dActual - dGoal) / dGoal) / 10 + " %";
+            retValue += Math.round(PercMulti * (dActual - dGoal) / dGoal) / 10 + PercSign;
         }
         else if (oBandingCompareType === KPIIndicatorBandingCompareType.ABS) {
-            retValue += Math.round(1000 * (dActual - dGoal)) / 10 + " %";
+            retValue += Math.round(PercMulti * (dActual - dGoal)) / 10 + PercSign;
         }
         return retValue;
     }
