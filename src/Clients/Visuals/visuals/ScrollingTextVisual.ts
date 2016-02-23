@@ -31,6 +31,8 @@ Created by Fredrik Hedenström, 2015-09-08
 /// <reference path="../_references.ts"/>
 
 module powerbi.visuals {
+    import DataRoleHelper = powerbi.data.DataRoleHelper;
+
     export interface CategoryViewModel {
         value: string;
         identity: string;
@@ -110,8 +112,8 @@ module powerbi.visuals {
             },            
             // Objects light up the formatting pane
             objects: {
-                general: {
-                    displayName: data.createDisplayNameGetter('Visual_General'),
+                scroller: {
+                    displayName: "Scroller",
                     properties: {
                         formatString: {
                             type: { formatting: { formatString: true } },
@@ -158,6 +160,15 @@ module powerbi.visuals {
                             type: { numeric: true }
                         },
                     },
+                    general: {
+                        displayName: data.createDisplayNameGetter('Visual_General'),
+                        properties: {
+                            formatString: {
+                                type: { formatting: { formatString: true } },
+                            }
+                        },
+                    }
+
                 }
             }
         };
@@ -179,6 +190,13 @@ module powerbi.visuals {
                 categories: [],
                 values: []
             };
+            
+            // This is necessary for backward compatability with Power BI Desktop client Dec 2015
+            // and Jan 2016. 
+            if (DataRoleHelper === undefined) {
+                DataRoleHelper = powerbi.visuals.DataRoleHelper;
+            }
+
             if (dataView) {
                 var categorical = dataView.categorical;
                 if (categorical && categorical.values) {
@@ -236,16 +254,16 @@ module powerbi.visuals {
         private sText: D3.Selection;
 
         private static properties = {
-            pShouldAutoSizeFont: { objectName: 'general', propertyName: 'pShouldAutoSizeFont' },
-            pShouldIndicatePosNeg: { objectName: 'general', propertyName: 'pShouldIndicatePosNeg' },
-            pShouldUsePosNegColoring: { objectName: 'general', propertyName: 'pShouldUsePosNegColoring' },
-            pShouldUseTextColoring: { objectName: 'general', propertyName: 'pShouldUseTextColoring' },
-            pFontSize: { objectName: 'general', propertyName: 'pFontSize' },
-            pSpeed: { objectName: 'general', propertyName: 'pSpeed' },
-            pCustomText: { objectName: 'general', propertyName: 'pCustomText' },
-            pForeColor: { objectName: 'general', propertyName: 'pForeColor' },
-            pBgColor: { objectName: 'general', propertyName: 'pBgColor' },
-            pInterval: { objectName: 'general', propertyName: 'pInterval' },
+            pShouldAutoSizeFont: { objectName: 'scroller', propertyName: 'pShouldAutoSizeFont' },
+            pShouldIndicatePosNeg: { objectName: 'scroller', propertyName: 'pShouldIndicatePosNeg' },
+            pShouldUsePosNegColoring: { objectName: 'scroller', propertyName: 'pShouldUsePosNegColoring' },
+            pShouldUseTextColoring: { objectName: 'scroller', propertyName: 'pShouldUseTextColoring' },
+            pFontSize: { objectName: 'scroller', propertyName: 'pFontSize' },
+            pSpeed: { objectName: 'scroller', propertyName: 'pSpeed' },
+            pCustomText: { objectName: 'scroller', propertyName: 'pCustomText' },
+            pForeColor: { objectName: 'scroller', propertyName: 'pForeColor' },
+            pBgColor: { objectName: 'scroller', propertyName: 'pBgColor' },
+            pInterval: { objectName: 'scroller', propertyName: 'pInterval' },
         };
         private pShouldAutoSizeFont_get(dataView: DataView): boolean { return dataView == null ? false : DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pShouldAutoSizeFont, false); }
         private pShouldIndicatePosNeg_get(dataView: DataView): boolean { return dataView == null ? true : DataViewObjects.getValue(dataView.metadata.objects, ScrollingTextVisual.properties.pShouldIndicatePosNeg, true); }
@@ -671,10 +689,10 @@ module powerbi.visuals {
             var instances: VisualObjectInstance[] = [];
             var dataView = this.dataView;
             switch (options.objectName) {
-                case 'general':
+                case 'scroller':
                     var general: VisualObjectInstance = {
-                        objectName: 'general',
-                        displayName: 'General',
+                        objectName: 'scroller',
+                        displayName: 'Scroller',
                         selector: null,
                         properties: {
                             pShouldAutoSizeFont: this.pShouldAutoSizeFont_get(dataView),
