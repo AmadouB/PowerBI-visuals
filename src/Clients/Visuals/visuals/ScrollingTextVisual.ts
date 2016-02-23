@@ -428,6 +428,12 @@ module powerbi.visuals {
                     break;
                 }
             }
+
+            var that = this;
+            this.intervalFunc = setTimeout(function (e) {
+                that.UpdateTextIntervals();
+            }, this.pInterval_get(this.dataView));
+
         }
 
         /** Update is called for data updates, resizes & formatting changes */
@@ -438,16 +444,11 @@ module powerbi.visuals {
             this.dataView = options.dataViews[0];
 
             var that = this;
+
             if (this.intervalFunc != null) {
-                clearInterval(this.intervalFunc);
+                clearTimeout(this.intervalFunc);
             }
-            this.intervalFunc = setInterval(function (e) {
-                /*that.sText.attr("x", that.posX);
-                that.posX -= that.activeSpeed * 8 * that.pInterval_get(that.dataView) / 100;
-                that.activeSpeed += (that.activeTargetSpeed - that.activeSpeed) * 0.5;
-                if (that.posX < -that.totalTextWidth) {
-                    that.posX = that.viewportWidth;
-                } */
+            this.intervalFunc = setTimeout(function (e) {
                 that.UpdateTextIntervals();
             }, this.pInterval_get(this.dataView));
 
