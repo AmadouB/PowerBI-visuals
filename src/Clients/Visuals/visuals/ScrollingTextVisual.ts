@@ -286,7 +286,7 @@ module powerbi.visuals {
         private measure1Index = 1;
         private measure0FormatString = "";
         private measure1FormatString = "";
-        private intervalFunc: any = null;
+//        private intervalFunc: any = null;
         private gPosX: number = 0;
  
         /** This is called once when the visual is initialially created */
@@ -312,7 +312,16 @@ module powerbi.visuals {
             this.sText = this.svg.append("text");
         }
 
+        private shouldRestartAnimFrame: boolean = false;
+        private animationFrameLoopStarted: boolean = false;
+        private animationLastTime: any = null;
+
         public UpdateTextIntervals() {
+            var now = new Date().getTime(), dt = now - (this.animationLastTime || now);
+            this.animationLastTime = now;
+
+            var pIntervalStatic = dt * 1.2; // this.pInterval_get(this.dataView)
+                       
             for (var i = 0; i < this.arrTextCategories.length; i++) {
                 var s: TextCategory = this.arrTextCategories[i];
                 if (s.svgSel == null) {
@@ -387,14 +396,14 @@ module powerbi.visuals {
                 }
             }
             this.activeSpeed += (this.activeTargetSpeed - this.activeSpeed) * 0.5;
-            this.gPosX -= this.activeSpeed * 8 * this.pInterval_get(this.dataView) / 100;
+            this.gPosX -= this.activeSpeed * 8 * pIntervalStatic / 100;
             if (this.gPosX < -5000) {
                 this.gPosX = 0;
             }
 
             for (var i = 0; i < this.arrTextCategories.length; i++) {
                 var s: TextCategory = this.arrTextCategories[i];
-                s.posX -= this.activeSpeed * 8 * this.pInterval_get(this.dataView) / 100;
+                s.posX -= this.activeSpeed * 8 * pIntervalStatic / 100;
                 if (s.svgSel != null) {
                     s.svgSel.attr("x", s.posX);
                 }
@@ -429,13 +438,33 @@ module powerbi.visuals {
                 }
             }
 
-            var that = this;
-            this.intervalFunc = setTimeout(function (e) {
-                that.UpdateTextIntervals();
-            }, this.pInterval_get(this.dataView));
+            /*            var that = this;
+                        this.intervalFunc = setTimeout(function (e) {
+                            that.UpdateTextIntervals();
+                        }, this.pInterval_get(this.dataView)); */
 
         }
 
+        public animationFrameLoopExited() {
+            if (this.shouldRestartAnimFrame) {
+                this.shouldRestartAnimFrame = false;
+                this.animationStep();
+            }
+        }
+
+        public animationStep() {
+            if (this.shouldRestartAnimFrame) {
+                this.animationFrameLoopExited();
+                return;
+            }
+
+            var that = this;
+            var curAnimFrame = window.requestAnimationFrame(function () { that.animationStep(); });
+
+            this.UpdateTextIntervals();
+        }
+		
+		
         /** Update is called for data updates, resizes & formatting changes */
         public update(options: VisualUpdateOptions) {
             var dataViews = options.dataViews;
@@ -445,12 +474,17 @@ module powerbi.visuals {
 
             var that = this;
 
-            if (this.intervalFunc != null) {
-                clearTimeout(this.intervalFunc);
-            }
-            this.intervalFunc = setTimeout(function (e) {
-                that.UpdateTextIntervals();
-            }, this.pInterval_get(this.dataView));
+            this.shouldRestartAnimFrame = true;
+
+            /*
+                        if (this.intervalFunc != null) {
+                            clearTimeout(this.intervalFunc);
+                        }
+                        this.intervalFunc = setTimeout(function (e) {
+                            that.UpdateTextIntervals();
+                        }, this.pInterval_get(this.dataView));
+                    	
+                        */
 
             this.activeTargetSpeed = this.pSpeed_get(this.dataView);
 
@@ -510,6 +544,11 @@ module powerbi.visuals {
             this.sText.each(function () {
                 that.totalTextWidth = this.getBBox().width;
             });
+
+            if (!this.animationFrameLoopStarted) {
+                this.animationFrameLoopStarted = true;
+                this.animationStep();
+            }
         }
 
         private arrTextCategories: TextCategory[];
