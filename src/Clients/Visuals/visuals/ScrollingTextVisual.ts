@@ -33,6 +33,15 @@ Created by Fredrik Hedenström, 2015-09-08
 module powerbi.visuals {
     import DataRoleHelper = powerbi.data.DataRoleHelper;
 
+    window.requestAnimFrame = (function () {
+        return window.requestAnimationFrame ||
+            window.webkitRequestAnimationFrame ||
+            window.mozRequestAnimationFrame ||
+            function (callback) {
+                window.setTimeout(callback, 1000 / 60);
+            };
+    })();
+
     export interface CategoryViewModel {
         value: string;
         identity: string;
@@ -286,7 +295,7 @@ module powerbi.visuals {
         private measure1Index = 1;
         private measure0FormatString = "";
         private measure1FormatString = "";
-//        private intervalFunc: any = null;
+        //        private intervalFunc: any = null;
         private gPosX: number = 0;
  
         /** This is called once when the visual is initialially created */
@@ -325,7 +334,7 @@ module powerbi.visuals {
             for (var i = 0; i < this.arrTextCategories.length; i++) {
                 var s: TextCategory = this.arrTextCategories[i];
                 if (s.svgSel == null) {
-                    // Create element (it's within the viewport)
+                    // Create element (it's within the viewport) 
                     if (s.posX < this.viewportWidth) {
                         var bShouldRenderAbsolute = this.measure0Index >= 0 ? true : false;
                         var bShouldRenderRelative = this.measure1Index >= 0 ? true : false;
@@ -385,6 +394,12 @@ module powerbi.visuals {
                             var sPrev: TextCategory = this.arrTextCategories[i - 1];
                             s.posX = sPrev.posX + sPrev.actualWidth;
                         }
+                        
+                        // Nedanstående är till för att hantera om vi har mindre texter än hela utrymmet - då vill vi inte lägga in textern i mitten...
+                        if (s.posX < this.viewportWidth) {
+                            s.posX = this.viewportWidth;
+                        }
+                        
                         // Uppdatera alla efterliggande med den nyligen tillagdas position och bredd.
                         if (i < this.arrTextCategories.length - 1) {
                             for (var t = i + 1; t < this.arrTextCategories.length; t++) {
@@ -409,7 +424,7 @@ module powerbi.visuals {
                 }
             }
 
-            // Remove elements outsiide of the left of the viewport
+            // Remove elements outside of the left of the viewport
             for (var i = 0; i < this.arrTextCategories.length; i++) {
                 var s: TextCategory = this.arrTextCategories[i];
 
@@ -437,12 +452,6 @@ module powerbi.visuals {
                     break;
                 }
             }
-
-            /*            var that = this;
-                        this.intervalFunc = setTimeout(function (e) {
-                            that.UpdateTextIntervals();
-                        }, this.pInterval_get(this.dataView)); */
-
         }
 
         public animationFrameLoopExited() {
@@ -459,7 +468,7 @@ module powerbi.visuals {
             }
 
             var that = this;
-            var curAnimFrame = window.requestAnimationFrame(function () { that.animationStep(); });
+            requestAnimFrame(function () { that.animationStep(); });
 
             this.UpdateTextIntervals();
         }
