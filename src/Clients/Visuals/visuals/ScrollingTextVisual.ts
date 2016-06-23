@@ -33,12 +33,21 @@ Created by Fredrik Hedenström, 2015-09-08
 module powerbi.visuals {
     import DataRoleHelper = powerbi.data.DataRoleHelper;
 
-    window.requestAnimFrame = (function () {
+    window["requestAnimFrame"] = (function () {
         return window.requestAnimationFrame ||
-            window.webkitRequestAnimationFrame ||
-            window.mozRequestAnimationFrame ||
+            window["webkitRequestAnimationFrame"] ||
+            window["mozRequestAnimationFrame"] ||
             function (callback) {
                 window.setTimeout(callback, 1000 / 60);
+            };
+    })();
+
+    window["cancelAnimFrame"] = (function () {//cancelAnimationFrame Polyfill
+        return window.cancelAnimationFrame ||
+            window["webkitCancelAnimationFrame"] ||
+            window["mozCancelAnimationFrame"] ||
+            function (id) {
+                window.clearTimeout(id);
             };
     })();
 
@@ -82,6 +91,7 @@ module powerbi.visuals {
                 {
                     name: 'Category',
                     kind: powerbi.VisualDataRoleKind.Grouping,
+                    displayName: 'Category'
                 },
                 {
                     name: 'Measure Absolute',
@@ -461,6 +471,8 @@ module powerbi.visuals {
             }
         }
 
+        private animationId: number = 0;//add a new property to keep id of animation callback.
+
         public animationStep() {
             if (this.shouldRestartAnimFrame) {
                 this.animationFrameLoopExited();
@@ -468,12 +480,12 @@ module powerbi.visuals {
             }
 
             var that = this;
-            requestAnimFrame(function () { that.animationStep(); });
+            //keep id of animation callback to animationId.
+            this.animationId = window["requestAnimFrame"](function () { that.animationStep(); });
 
             this.UpdateTextIntervals();
         }
-		
-		
+
         /** Update is called for data updates, resizes & formatting changes */
         public update(options: VisualUpdateOptions) {
             var dataViews = options.dataViews;
@@ -760,6 +772,10 @@ module powerbi.visuals {
                     break;
             }
             return instances;
+        }
+
+        public destroy(): void {
+            window["cancelAnimFrame"](this.animationId);//removes animation callback.
         }
     }
 }
