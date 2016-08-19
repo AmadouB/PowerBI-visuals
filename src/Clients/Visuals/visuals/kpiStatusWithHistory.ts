@@ -116,6 +116,9 @@ module powerbi.visuals {
 
                 },
             }],
+            sorting: {
+                default: {},
+            },
             objects: {
                 kpi: {
                     displayName: "KPI",
@@ -389,7 +392,12 @@ module powerbi.visuals {
 
             var sW = viewport.width;
             var sH = viewport.height;
-            var sL = Math.sqrt(sW * sW + sH * sH);
+            //var sL = Math.sqrt(sW * sW + sH * sH);          
+            var sL = sH;
+
+            var iBox1H = sH * 0.25;
+            var iBox2H = sH * 0.25;
+            var iBox3H = sH * 0.5;
 
             this.sMainRect
                 .attr("x", 0)
@@ -398,32 +406,61 @@ module powerbi.visuals {
                 .attr("height", sH)
                 .attr("fill", statusColor);
 
+            var iSize = iBox1H * 0.7;
+
             this.sKPIText
                 .attr("x", sW * 0.5)
-                .attr("y", sH * 0.12 + sH * 0.05)
+                .attr("y", iBox1H * 0.75)
                 .attr("fill", "white")
-                .attr("style", "font-family:calibri;font-size:" + sL * 0.07 + "px")
+                .attr("style", "font-family:calibri;font-size:" + iSize + "px")
                 .attr("text-anchor", "middle")
                 .text(this.kpiText);
 
+            // Fix text size
+            for (var i = 0; i < 20; i++) {
+                if (this.sKPIText.node().getComputedTextLength() > sW * 0.8) {
+                    iSize -= iBox1H * 0.04;
+                    this.sKPIText.attr("style", "font-family:calibri;font-size:" + iSize + "px");
+                }
+                else {
+                    break;
+                }
+            }
+
+            var iSize2 = iBox2H * 0.75;
             this.sKPIActualText
                 .attr("x", sW * 0.5)
-                .attr("y", sH * 0.45)
+                .attr("y", iBox1H + iBox2H * 0.8)
                 .attr("fill", "white")
-                .attr("style", "font-weight:bold;font-family:calibri;font-size:" + sL * 0.08 + "px")
+                .attr("style", "font-weight:bold;font-family:calibri;font-size:" + iSize2 + "px")
                 .attr("text-anchor", "middle")
                 .text(this.getFormattedValue(dataView, this.kpiActual, this.kpiForceThansandsSeparator));
+
+            // Fix text size
+            for (var i = 0; i < 20; i++) {
+                if (this.sKPIActualText.node().getComputedTextLength() > sW * 0.5) {
+                    iSize2 -= iBox2H * 0.04;
+                    this.sKPIActualText.attr("style", "font-weight:bold;font-family:calibri;font-size:" + iSize2 + "px")
+                }
+                else {
+                    break;
+                }
+            }
+
+
+            var KPIActualTextWidth = this.sKPIActualText.node().getComputedTextLength();
 
             var diffText = "";
             if (this.kpiTargetExists) {
                 diffText = "(" + GetKPIActualDiffFromGoal(this.kpiActual, this.kpiGoal, this.kpiBandingCompareType, this.kpiDisplayDifferenceAsPercent) + ")";
             }
             this.sKPIActualDiffText
-                .attr("x", sW * 0.95)
-                .attr("y", sH * 0.45)
+            //.attr("x", sW * 0.95)
+                .attr("x", sW * 0.52 + KPIActualTextWidth * 0.5)
+                .attr("y", iBox1H + iBox2H * 0.8 - iSize2 * 0.03)
                 .attr("fill", "white")
-                .attr("style", "font-weight:bold;font-family:calibri;font-size:" + sL * 0.05 + "px")
-                .attr("text-anchor", "end")
+                .attr("style", "font-weight:bold;font-family:calibri;font-size:" + iSize2 * 0.5 + "px")
+                .attr("text-anchor", "start")
                 .text(diffText);
 
             if (this.kpiChartType === KPIIndicatorChartType.LINE) {

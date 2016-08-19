@@ -30,8 +30,10 @@ Created by Fredrik Hedenström, 2015-09-08
 
 /// <reference path="../_references.ts"/>
 
+
 module powerbi.visuals {
     import DataRoleHelper = powerbi.data.DataRoleHelper;
+
 
     window["requestAnimFrame"] = (function () {
         return window.requestAnimationFrame ||
@@ -421,6 +423,13 @@ module powerbi.visuals {
                 }
             }
             this.activeSpeed += (this.activeTargetSpeed - this.activeSpeed) * 0.5;
+            if (this.activeSpeed < 0) {
+                this.activeSpeed = 0;
+            }
+            if (this.activeSpeed > 100) {
+                this.activeSpeed = 100;
+            }
+
             this.gPosX -= this.activeSpeed * 8 * pIntervalStatic / 100;
             if (this.gPosX < -5000) {
                 this.gPosX = 0;
@@ -441,7 +450,9 @@ module powerbi.visuals {
                 if ((s.posX + s.actualWidth) < 0) {
                     // Hela elementet är utanför, ta bort det (börja om)
                     var r1: TextCategory = this.arrTextCategories.splice(i, 1)[0];
-                    r1.svgSel.remove();
+                    if (r1.svgSel != null) {
+                        r1.svgSel.remove();
+                    }
                     r1.svgSel = null;
                     r1.actualWidth = 0;
 
@@ -525,6 +536,12 @@ module powerbi.visuals {
             }
             else {
                 this.activeFontSize = this.pFontSize_get(this.dataView);
+            }
+            if (this.activeFontSize < 0) {
+                this.activeFontSize = 0;
+            }
+            else if (this.activeFontSize > 10000) {
+                this.activeFontSize = 10000;
             }
 
             var viewModel = ScrollingTextVisual.converter(dataViews[0], this.colorPalette, this);
