@@ -182,7 +182,8 @@ module powerbi.visuals {
                         },
                     },
                     general: {
-                        displayName: data.createDisplayNameGetter('Visual_General'),
+                        //displayName: data.createDisplayNameGetter('Visual_General'),
+                        displayName: 'General',
                         properties: {
                             formatString: {
                                 type: { formatting: { formatString: true } },

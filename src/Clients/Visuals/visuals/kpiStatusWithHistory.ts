@@ -83,15 +83,18 @@ module powerbi.visuals {
                 {
                     name: 'Values',
                     kind: VisualDataRoleKind.Measure,
-                    displayName: data.createDisplayNameGetter('Role_DisplayName_Value'),
+                    //displayName: data.createDisplayNameGetter('Role_DisplayName_Value'),
+                    displayName: 'Actual value',
                 }, {
                     name: 'Targets',
                     kind: VisualDataRoleKind.Measure,
-                    displayName: data.createDisplayNameGetter('Role_DisplayName_TargetValue'),
+                    //displayName: data.createDisplayNameGetter('Role_DisplayName_TargetValue'),
+                    displayName: 'Target value',
                 }, {
                     name: 'Category',
                     kind: VisualDataRoleKind.Grouping,
-                    displayName: data.createDisplayNameGetter('Role_DisplayName_Axis'),
+                    //displayName: data.createDisplayNameGetter('Role_DisplayName_Axis'),
+                    displayName: 'Trend axis',
                 }],
             dataViewMappings: [{
                 conditions: [
@@ -155,7 +158,8 @@ module powerbi.visuals {
                 },
 
                 general: {
-                    displayName: data.createDisplayNameGetter('Visual_General'),
+                    //displayName: data.createDisplayNameGetter('Visual_General'),
+                    displayName: 'General',
                     properties: {
                         formatString: {
                             type: { formatting: { formatString: true } },
